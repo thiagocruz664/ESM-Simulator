@@ -7,15 +7,15 @@ Mas información:
 https://drive.google.com/file/d/13sWqnlIF54dDIfUC_e0PlW9IuXdmEMA-/view?usp=sharing
 
 # Equipo de Desarrollo: 
-.	CRUZ, Thiago Agustín
+CRUZ, Thiago Agustín
 
-.     cruzthiagoagustin664@gmail.com 
+cruzthiagoagustin664@gmail.com 
      
-.        RYBERG, Brian Ezequiel 
+RYBERG, Brian Ezequiel 
         
-.     niideaelmaildebrian@gmail.com 
+ryberg.brian2@gmail.com 
      
-.        MEIR, Jonathan Cristian 
+MEIR, Jonathan Cristian 
         
-.     estenohizonada@gmail.com 
+jonny.meier26@gmail.com 
      

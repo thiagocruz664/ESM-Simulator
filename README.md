@@ -3,13 +3,19 @@ ESM Simulator es una herramienta educativa de código abierto desarrollada en Py
      ![image](https://github.com/user-attachments/assets/b82288c3-e78b-4e84-925b-435cb3042dfa)
 La microarquitectura ESMx16 y su correspondiente ISA fueron desarrolladas por la cátedra de Fundamentos de Informática de la Facultad de Ingeniería de Oberá (FIO-UNaM) como una alternativa simplificada a la LC-3 de Yale Patt. Su propósito no es reemplazar a la LC-3, sino servir como un primer escalón en el proceso de enseñanza, facilitando la comprensión progresiva de los conceptos fundamentales de arquitectura de computadoras y programación en ensamblador. 
 
-     Mas información: 
-     https://drive.google.com/file/d/13sWqnlIF54dDIfUC_e0PlW9IuXdmEMA-/view?usp=sharing
+Mas información: 
+https://drive.google.com/file/d/13sWqnlIF54dDIfUC_e0PlW9IuXdmEMA-/view?usp=sharing
 
 # Equipo de Desarrollo: 
-.	CRUZ, Thiago Agustín\n
-     cruzthiagoagustin664@gmail.com 
-        RYBERG, Brian Ezequiel 
-     niideaelmaildebrian@gmail.com 
-        MEIR, Jonathan Cristian 
-     estenohizonada@gmail.com 
+.	CRUZ, Thiago Agustín
+
+.     cruzthiagoagustin664@gmail.com 
+     
+.        RYBERG, Brian Ezequiel 
+        
+.     niideaelmaildebrian@gmail.com 
+     
+.        MEIR, Jonathan Cristian 
+        
+.     estenohizonada@gmail.com 
+     

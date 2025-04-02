@@ -1,6 +1,6 @@
 #    ESM Simulator its a GUI for programing in assmbly of the ESMx16 ISA
 
-#    Copyright © 2025 Cruz Thiago, Ryberg Brian, Meier Jonathan, Hernan Kisiel, Roberto Carballo, Matías Krujoski y Alicia Rendon
+#    Copyright © 2025 Cruz Thiago, Ryberg Brian, Meier Jonathan, Hernan Kisiel, Roberto Carballo, Matías Krujoski y Alicia Rendon.
 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -86,7 +86,7 @@ class Memoria:
         self.punto_de_apoyo = 0
         for i in range(20):
             entry = []
-            entry0 = tk.Button(self.frame_memory,text=f"  ◽ x{hex(12288+i)}",font=("Arial", 8),borderwidth=0, relief="flat",highlightthickness=0,command=lambda i=i: self.breakpoint(i))
+            entry0 = tk.Button(self.frame_memory,text=f"  ◽ x{format(offset,f'04x')}",font=("Arial", 8),borderwidth=0, relief="flat",highlightthickness=0,command=lambda i=i: self.breakpoint(i))
             entry0.grid(row=i+1,column=0,padx=0,pady=0,sticky="nswe")
             entry.append(entry0)
             for f in range(4):

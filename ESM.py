@@ -1,6 +1,6 @@
 #    ESM Simulator its a GUI for programing in assmbly of the ESMx16 ISA
 
-#    Copyright © 2025 Cruz Thiago, Ryberg Brian, Meier Jonathan.
+#    Copyright © 2025 Cruz Thiago, Ryberg Brian, Meier Jonathan, Hernan Kisiel, Roberto Carballo, Matías Krujoski y Alicia Rendon.
 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by

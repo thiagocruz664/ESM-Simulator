@@ -164,7 +164,6 @@ class Informacion:
         else:
             self.lang = "es"
         self.lenguaje()
-        pass
     def limpiar(self):
         self.parrafo1.config(state=tk.NORMAL)
         self.creditos.config(state=tk.NORMAL)
@@ -325,7 +324,7 @@ class Informacion:
     def licencia(self):
         webbrowser.open("https://www.gnu.org/licenses/gpl-3.0.html")
     def acerca(self):
-        webbrowser.open_new("https://github.com/thiagocruz664/Educational-Stack-Machine---IDE")
+        webbrowser.open_new("https://github.com/thiagocruz664/ESM-Simulator")
     def cerrar(self):
         self.frame_info.destroy()
         self.canvas.destroy()

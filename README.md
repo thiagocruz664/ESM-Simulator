@@ -15,7 +15,7 @@ RYBERG, Brian Ezequiel
         
 ryberg.brian2@gmail.com 
      
-MEIR, Jonathan Cristian 
+MEIER, Jonathan Cristian 
         
 jonny.meier26@gmail.com 
      

@@ -26,13 +26,14 @@ class Informacion:
         self.ventana_tam = ventana.winfo_width()
 
         self.canvas = tk.Canvas(ventana)
-        self.canvas.grid(row=0, column=0, rowspan=3, columnspan=2, sticky="nsew")
+        self.canvas.grid(row=0, column=0, rowspan=4, columnspan=3, sticky="nsew")
 
         self.scroll = tk.Scrollbar(ventana, orient="vertical", command=self.canvas.yview)
         self.scroll.grid(row=0, rowspan=3, column=3, sticky="nsw")
         self.canvas.configure(yscrollcommand=self.scroll.set)
 
         self.frame_info = tk.Frame(self.canvas)
+        self.frame_info.grid_configure(sticky="nsew")
         self.canvas.create_window(((self.ventana_tam/2)-15, 0), window=self.frame_info, anchor="n")
         self.frame_info.bind("<Configure>", self.on_frame_configure)
 
@@ -199,7 +200,7 @@ class Informacion:
                                         "   cruzthiagoagustin664@gmail.com\n\n"
                                         "       RYBERG, Brian Ezequiel\n"
                                         "   ryberg.brian2@gmail.com\n\n"
-                                        "       MEIR, Jonathan Cristian\n"
+                                        "       MEIER, Jonathan Cristian\n"
                                         "   jonny.meier26@gmail.com\n\n"
                                         "En caso de cualquier bug, contactar con algún desarrollador\n"
                                         "detallando el problema para poder solucionarlo. Gracias.")
@@ -272,7 +273,7 @@ class Informacion:
                                         "   cruzthiagoagustin664@gmail.com\n\n"
                                         "       RYBERG, Brian Ezequiel\n"
                                         "   ryberg.brian2@gmail.com\n\n"
-                                        "       MEIR, Jonathan Cristian\n"
+                                        "       MEIER, Jonathan Cristian\n"
                                         "   jonny.meier26@gmail.com\n\n"
                                         "In case of any bugs, please contact a developer with details\n"
                                         "about the issue so it can be resolved. Thank you.")

@@ -372,7 +372,6 @@ intrucciones:
 		if(pre==0){
 			//strcpy(map_memory[direccionador], "");
 			dato[direccionador] = acumulador;
-			acumulador = 0;
 		}
 		
 	}
@@ -380,7 +379,6 @@ intrucciones:
 		if(pre==0){
 			//strcpy(map_memory[pc+1+A], "");
 			dato[pc+1+A] = acumulador;
-			acumulador = 0;
 		}
 	}
 	|	ST error				{if(pre==1){

@@ -270,13 +270,15 @@ class Memoria:
     def limpiar(self):
         if not self.seguimiento:
             self.seguir()
+        self.diccionario_memoria = {}
+        self.pc_memoria = 0
         self.breakpoints = []
         self.ensamblado = False
         for i in self.render_memory:
             entry = self.render_memory[i]
             ent = entry[0]
             self.punto_de_apoyo = 12288
-            ent.config(text=f"  ◻️ x{hex(self.punto_de_apoyo+i)}")
+            ent.config(text=f"  ◻️ x{format(self.punto_de_apoyo+i,f'04x').upper()}")
             for j in range(1,5):
                 ent = entry[j]
                 ent.config(state=tk.NORMAL)

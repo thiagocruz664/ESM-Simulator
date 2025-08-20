@@ -101,10 +101,15 @@ int buscarDato(char *etiqueta){
 }
 
 void nzpeador(){
-	if(acumulador<0){
+	// Forzar a 16 bits
+    unsigned short acum16 = (unsigned short)(acumulador & 0xFFFF);
+
+    // Interpretar como 16 bits con signo
+    short acum_signed = (short)acum16;
+	if(acum_signed<0){
 			ALUFlags = "n";
 		}else{
-			if(acumulador==0){
+			if(acum_signed==0){
 				ALUFlags = "z";
 			}else{
 				ALUFlags = "p";

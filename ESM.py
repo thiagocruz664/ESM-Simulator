@@ -771,7 +771,15 @@ def capture_char(event):
                 c_string_st = ctypes.c_char_p(instrucsão.encode('utf-8'))
                 lib.reemplazar_linea_st(c_string_st, dir)
             else:
-                instrucsão = f"#{acumulador}"
+                # Forzar a 16 bits
+                acum16 = acumulador & 0xFFFF  
+
+                # Interpretar como com2
+                if acum16 & 0x8000:
+                    acum_signed = acum16 - 0x10000
+                else:
+                    acum_signed = acum16
+                instrucsão = f"#{acum_signed}"
                 c_string_st = ctypes.c_char_p(instrucsão.encode('utf-8'))
                 lib.reemplazar_linea_st(c_string_st, dir)
             
@@ -785,7 +793,7 @@ def capture_char(event):
         log(f"Error (line 715): {ex}")
     
     try:
-        data_view.actualizar(acumulador, status, format(pc, '04x'))
+        data_view.actualizar(acum_signed, status, format(pc, '04x'))
         memoria.mapear_memoria(diccionario, c_origen.value, pc)
     except Exception as ex:
         log(f"Error (line 720): {ex}")
@@ -1186,11 +1194,19 @@ def assembly():
         memoria.ab_memoria = 1
         c_acumulador = (ctypes.c_int).in_dll(lib, "acumulador")
         c_acumulador = c_acumulador.value
+        # Forzar a 16 bits
+        acum16 = c_acumulador & 0xFFFF  
+
+        # Interpretar como com2
+        if acum16 & 0x8000:
+            acum_signed = acum16 - 0x10000
+        else:
+            acum_signed = acum16
         c_status = (ctypes.c_char_p).in_dll(lib, "ALUFlags")
         c_status = c_status.value
         c_pc = (ctypes.c_int).in_dll(lib, "pc")
         c_pc = c_pc.value
-        data_view.actualizar(c_acumulador,c_status,format(c_pc,'04x'))
+        data_view.actualizar(acum_signed,c_status,format(c_pc,'04x'))
         log(f"PC: {c_pc}    Acumulador: {c_acumulador}    ALUFlags: {c_status}")
     else:
         error(e)
@@ -1245,6 +1261,16 @@ def stepin():
                             remplazar_etiqueta = diccionario[hex(pc+borrar)][0]
                         c_acumulador = (ctypes.c_int).in_dll(lib, "acumulador")
                         acumulador = c_acumulador.value
+
+                        # Forzar a 16 bits
+                        acum16 = acumulador & 0xFFFF  
+
+                        # Interpretar como com2
+                        if acum16 & 0x8000:
+                            acum_signed = acum16 - 0x10000
+                        else:
+                            acum_signed = acum16
+
                         if acumulador >= 0:
                             acum_bin = format(acumulador,f'0{16}b')
                             acum_hexa = format(acumulador,f'04x').upper()
@@ -1264,7 +1290,8 @@ def stepin():
                             c_string_st = ctypes.c_char_p(instrucsão.encode('utf-8'))
                             lib.reemplazar_linea_st(c_string_st,dir)
                         else:
-                            instrucsão = f"#{acumulador}"
+                            log(f"INSTRUCCION ST NO ENCONTRADA, SE PONE #{acum_signed}")
+                            instrucsão = f"#{acum_signed}"
                             c_string_st = ctypes.c_char_p(instrucsão.encode('utf-8'))
                             lib.reemplazar_linea_st(c_string_st,dir)
                         if etiqueta_siono:
@@ -1305,7 +1332,15 @@ def stepin():
                     memoria.mapear_memoria(diccionario,c_origen.value,pc)
                 else:
                     c_origen = (ctypes.c_int).in_dll(lib, "origen")
-                    data_view.actualizar(acumulador,status,format(pc,'04x'))
+                    # Forzar a 16 bits
+                    acum16 = acumulador & 0xFFFF  
+
+                    # Interpretar como com2
+                    if acum16 & 0x8000:
+                        acum_signed = acum16 - 0x10000
+                    else:
+                        acum_signed = acum16
+                    data_view.actualizar(acum_signed,status,format(pc,'04x'))
                     if pc in memoria.breakpoints:
                         runer2 = False
                         log(f"BREAKPOINT {runer2}")
@@ -1454,59 +1489,11 @@ ventana.resizable(True, True)
 ventana.grid_rowconfigure(1, weight=1)
 ventana.grid_columnconfigure(1, weight=1)
 
-configs()
-
-canvas = tk.Canvas(ventana, bg=themes[current_theme]["bg"])
-canvas.grid(row=0, column=0, rowspan=2, columnspan=2, sticky="nsew")
-main_frame = tk.Frame(canvas, bg=themes[current_theme]["bg"])
-main_frame.grid_rowconfigure(1, weight=1)
-main_frame.grid_columnconfigure(1, weight=1)
-canvas_window = canvas.create_window((0, 0), window=main_frame,anchor="nw")
-
-def configure_scroll_region(event=None):
-    canvas.configure(scrollregion=canvas.bbox("all"))
-def configure_canvas_window(event=None):
-    canvas_width = canvas.winfo_width()
-    canvas.itemconfig(canvas_window, width=canvas_width)
-main_frame.bind('<Configure>', configure_scroll_region)
-canvas.bind('<Configure>', configure_canvas_window)
-
-zoom_factor = 1.0
-min_zoom = 1.0
-max_zoom = 3.0
-def apply_zoom(scale, event=None):
-    global zoom_factor
-    if scale * zoom_factor > max_zoom:
-        return
-    if scale * zoom_factor < min_zoom:
-        reset_zoom()
-        return
-    if event:
-        mouse_x = canvas.canvasx(event.x)
-        mouse_y = canvas.canvasy(event.y)
-    else:
-        mouse_x = canvas.winfo_width() / 2
-        mouse_y = canvas.winfo_height() / 2
-    canvas.scale("all", mouse_x, mouse_y, scale, scale)
-    zoom_factor *= scale
-    canvas.configure(scrollregion=canvas.bbox("all"))
-def zoom_in(event=None): apply_zoom(1.1, event)
-def zoom_out(event=None): apply_zoom(0.9, event)
-def reset_zoom(event=None):
-    global zoom_factor
-    scale = 1.0 / zoom_factor
-    apply_zoom(scale)
-    zoom_factor = 1.0
-canvas.bind("<Control-MouseWheel>", lambda e: zoom_in(e) if e.delta > 0 else zoom_out(e))
-ventana.bind("<Control-plus>", zoom_in)
-ventana.bind("<Control-minus>", zoom_out)
-ventana.bind("<Control-0>", reset_zoom)
-
-menu = BarraMenu(main_frame, lang, theme, nuevo_archivo, abrir_archivo, guardar_archivo, guardar_como, assembly, run, stepin, reset, toggle_mode, español, english, about, guardar_archivo_binario, guardar_archivo_hexadecimal)
-editor = EditorTexto(main_frame,guardar_archivo,escrivir_archivo,mostrar_mensaje)
-consola = Consola(main_frame,lang)
-memoria = Memoria(main_frame,diccionario,pc,ab,theme)
-data_view = Variables(main_frame)
+menu = BarraMenu(ventana, lang, theme, nuevo_archivo, abrir_archivo, guardar_archivo, guardar_como, assembly, run, stepin, reset, toggle_mode, español, english, about, guardar_archivo_binario, guardar_archivo_hexadecimal)
+editor = EditorTexto(ventana,guardar_archivo,escrivir_archivo,mostrar_mensaje)
+consola = Consola(ventana,lang)
+memoria = Memoria(ventana,diccionario,pc,ab,theme)
+data_view = Variables(ventana)
 
 ventana.bind('<Control-z>', editor.deshacer)
 ventana.bind('<Control-y>', editor.rehacer)
@@ -1515,6 +1502,7 @@ if not primer_inicio:
 else:
     primer_inicio = False
 
+configs()
 cambiar_lenguaje(lang)
 apply_theme()
 

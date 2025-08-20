@@ -154,10 +154,15 @@ int buscarDato(char *etiqueta){
 }
 
 void nzpeador(){
-	if(acumulador<0){
+	// Forzar a 16 bits
+    unsigned short acum16 = (unsigned short)(acumulador & 0xFFFF);
+
+    // Interpretar como 16 bits con signo
+    short acum_signed = (short)acum16;
+	if(acum_signed<0){
 			ALUFlags = "n";
 		}else{
-			if(acumulador==0){
+			if(acum_signed==0){
 				ALUFlags = "z";
 			}else{
 				ALUFlags = "p";
@@ -322,7 +327,7 @@ char* get_etiq(int pc_line){
 /*FUNCIONES PARA EL DICCIONARIO*/
 
 
-#line 326 "assemble.tab.c"
+#line 331 "assemble.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -767,11 +772,11 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   288,   288,   289,   292,   298,   299,   307,   314,   320,
-     323,   329,   334,   337,   342,   345,   351,   354,   361,   368,
-     371,   379,   386,   389,   395,   401,   404,   407,   426,   429,
-     434,   438,   442,   449,   454,   461,   472,   477,   488,   495,
-     504,   515,   532
+       0,   293,   293,   294,   297,   303,   304,   312,   319,   325,
+     328,   334,   339,   342,   347,   350,   356,   359,   366,   373,
+     376,   383,   389,   392,   398,   404,   407,   410,   429,   432,
+     437,   441,   445,   452,   457,   464,   475,   480,   491,   498,
+     507,   518,   535
 };
 #endif
 
@@ -1370,42 +1375,42 @@ yyreduce:
   switch (yyn)
     {
   case 3: /* prog: prog intrucciones '\n'  */
-#line 289 "assemble.y"
+#line 294 "assemble.y"
                                   {printf("\n");
 		//ACA SAQUE EL IF Y EL GETCHAR
 	}
-#line 1378 "assemble.tab.c"
+#line 1383 "assemble.tab.c"
     break;
 
   case 4: /* prog: prog ETIQUETA intrucciones '\n'  */
-#line 292 "assemble.y"
+#line 297 "assemble.y"
                                             {if(pre==1){
 		matriz_etiquetas_k[contador_matriz_etiquets]=(yyvsp[-2].str);
 		matriz_etiquetas_d[contador_matriz_etiquets]=pc;
 		contador_matriz_etiquets++;
 		}
 	}
-#line 1389 "assemble.tab.c"
+#line 1394 "assemble.tab.c"
     break;
 
   case 5: /* prog: prog reservas '\n'  */
-#line 298 "assemble.y"
+#line 303 "assemble.y"
                                    {}
-#line 1395 "assemble.tab.c"
+#line 1400 "assemble.tab.c"
     break;
 
   case 6: /* prog: prog INVALIDO  */
-#line 299 "assemble.y"
+#line 304 "assemble.y"
                               {
 		if(pre==1){
 			errores= 315;
 		}
 	}
-#line 1405 "assemble.tab.c"
+#line 1410 "assemble.tab.c"
     break;
 
   case 7: /* intrucciones: ADD dato  */
-#line 307 "assemble.y"
+#line 312 "assemble.y"
                                     {if(pre==0){
 		acumulador = acumulador + A;
 		nzpeador();
@@ -1413,96 +1418,96 @@ yyreduce:
 		acumulador = overflow(acumulador);
 		}
 	}
-#line 1417 "assemble.tab.c"
+#line 1422 "assemble.tab.c"
     break;
 
   case 8: /* intrucciones: ADD direccion  */
-#line 314 "assemble.y"
+#line 319 "assemble.y"
                                     {if(pre==0){
 		acumulador = acumulador + dato[direccionador];
 		nzpeador();
 		printf("REGISTRO: %i\n",acumulador);
 		acumulador = overflow(acumulador);
 	}}
-#line 1428 "assemble.tab.c"
+#line 1433 "assemble.tab.c"
     break;
 
   case 9: /* intrucciones: ADD error  */
-#line 320 "assemble.y"
+#line 325 "assemble.y"
                                                         {if(pre==1){
 			errores= 300;
 	}}
-#line 1436 "assemble.tab.c"
+#line 1441 "assemble.tab.c"
     break;
 
   case 10: /* intrucciones: AND dato  */
-#line 323 "assemble.y"
+#line 328 "assemble.y"
                                     {if(pre==0){
 		acumulador = acumulador & A;
 		nzpeador();
 		printf("REGISTRO: %i\n",acumulador);
 	}
 	}
-#line 1447 "assemble.tab.c"
+#line 1452 "assemble.tab.c"
     break;
 
   case 11: /* intrucciones: AND direccion  */
-#line 329 "assemble.y"
+#line 334 "assemble.y"
                                     {if(pre==0){
 		acumulador = acumulador & dato[direccionador];
 		nzpeador();
 		printf("REGISTRO: %i\n",acumulador);
 	}}
-#line 1457 "assemble.tab.c"
+#line 1462 "assemble.tab.c"
     break;
 
   case 12: /* intrucciones: AND error  */
-#line 334 "assemble.y"
+#line 339 "assemble.y"
                                                         {if(pre==1){
 			errores= 300;
 	}}
-#line 1465 "assemble.tab.c"
+#line 1470 "assemble.tab.c"
     break;
 
   case 13: /* intrucciones: NOTA direccion  */
-#line 337 "assemble.y"
+#line 342 "assemble.y"
                                     {if(pre==0){
 		acumulador = ~dato[direccionador];
 		nzpeador();
 		printf("REGISTRO: %i\n",acumulador);
 	}}
-#line 1475 "assemble.tab.c"
+#line 1480 "assemble.tab.c"
     break;
 
   case 14: /* intrucciones: NOTA error  */
-#line 342 "assemble.y"
+#line 347 "assemble.y"
                                                         {if(pre==1){
 			errores= 303;
 	}}
-#line 1483 "assemble.tab.c"
+#line 1488 "assemble.tab.c"
     break;
 
   case 15: /* intrucciones: NOTB  */
-#line 345 "assemble.y"
+#line 350 "assemble.y"
                                     {if(pre==0){
 		acumulador = ~acumulador;
 		nzpeador();
 		printf("REGISTRO: %i\n",acumulador);
 
 	}}
-#line 1494 "assemble.tab.c"
+#line 1499 "assemble.tab.c"
     break;
 
   case 16: /* intrucciones: NOTB error  */
-#line 351 "assemble.y"
+#line 356 "assemble.y"
                                                         {if(pre==1){
 				errores= 301;
 	}}
-#line 1502 "assemble.tab.c"
+#line 1507 "assemble.tab.c"
     break;
 
   case 17: /* intrucciones: LD direccion  */
-#line 354 "assemble.y"
+#line 359 "assemble.y"
                                     {
 		if(pre==0){
 			acumulador = dato[direccionador];
@@ -1510,11 +1515,11 @@ yyreduce:
 			printf("REGISTRO: %i\n",acumulador);
 		}
 	}
-#line 1514 "assemble.tab.c"
+#line 1519 "assemble.tab.c"
     break;
 
   case 18: /* intrucciones: LD dato  */
-#line 361 "assemble.y"
+#line 366 "assemble.y"
                                                         {
 		if(pre==0){
 			acumulador = dato[pc+1+A];
@@ -1522,90 +1527,88 @@ yyreduce:
 			printf("REGISTRO: %i\n",acumulador);
 		}
 	}
-#line 1526 "assemble.tab.c"
+#line 1531 "assemble.tab.c"
     break;
 
   case 19: /* intrucciones: LD error  */
-#line 368 "assemble.y"
+#line 373 "assemble.y"
                                                         {if(pre==1){
 				errores= 300;
 	}}
-#line 1534 "assemble.tab.c"
+#line 1539 "assemble.tab.c"
     break;
 
   case 20: /* intrucciones: ST direccion  */
-#line 371 "assemble.y"
+#line 376 "assemble.y"
                                     {
 		if(pre==0){
 			//strcpy(map_memory[direccionador], "");
 			dato[direccionador] = acumulador;
-			acumulador = 0;
 		}
 		
 	}
-#line 1547 "assemble.tab.c"
+#line 1551 "assemble.tab.c"
     break;
 
   case 21: /* intrucciones: ST dato  */
-#line 379 "assemble.y"
+#line 383 "assemble.y"
                                                         {
 		if(pre==0){
 			//strcpy(map_memory[pc+1+A], "");
 			dato[pc+1+A] = acumulador;
-			acumulador = 0;
 		}
 	}
-#line 1559 "assemble.tab.c"
+#line 1562 "assemble.tab.c"
     break;
 
   case 22: /* intrucciones: ST error  */
-#line 386 "assemble.y"
+#line 389 "assemble.y"
                                                         {if(pre==1){
 				errores= 300;
 	}}
-#line 1567 "assemble.tab.c"
+#line 1570 "assemble.tab.c"
     break;
 
   case 23: /* intrucciones: BR_FLAGS datoBR  */
-#line 389 "assemble.y"
+#line 392 "assemble.y"
                                       {if(pre==0){
 		if(compararFlags((yyvsp[-1].str))){
 				pc=pc+A;
 				banderaParaBranch=1;
 		}
 	}}
-#line 1578 "assemble.tab.c"
+#line 1581 "assemble.tab.c"
     break;
 
   case 24: /* intrucciones: BR_FLAGS direccionBR  */
-#line 395 "assemble.y"
+#line 398 "assemble.y"
                                       {if(pre==0){
 		if(compararFlags((yyvsp[-1].str))){
 			pc = direccionador - 1;
 			banderaParaBranch=1;
 		}
 	}}
-#line 1589 "assemble.tab.c"
+#line 1592 "assemble.tab.c"
     break;
 
   case 25: /* intrucciones: BR_FLAGS error  */
-#line 401 "assemble.y"
+#line 404 "assemble.y"
                                                         {if(pre==1){
 			errores= 300;
 	}}
-#line 1597 "assemble.tab.c"
+#line 1600 "assemble.tab.c"
     break;
 
   case 26: /* intrucciones: BR_FLAGS INVALIDO error  */
-#line 404 "assemble.y"
+#line 407 "assemble.y"
                                                                 {if(pre==1){
 			errores= 300;
 	}}
-#line 1605 "assemble.tab.c"
+#line 1608 "assemble.tab.c"
     break;
 
   case 27: /* intrucciones: TRAP direccion  */
-#line 407 "assemble.y"
+#line 410 "assemble.y"
                                     {if(pre==0){
 		if((int)direccionador==33){
 			//ESTO ES TRAP 21 -> OUT
@@ -1625,45 +1628,45 @@ yyreduce:
 					errores= 310;
 			}
 		}}
-#line 1629 "assemble.tab.c"
+#line 1632 "assemble.tab.c"
     break;
 
   case 28: /* intrucciones: TRAP error  */
-#line 426 "assemble.y"
+#line 429 "assemble.y"
                                                         {if(pre==1){
 				errores= 310;
 	}}
-#line 1637 "assemble.tab.c"
+#line 1640 "assemble.tab.c"
     break;
 
   case 29: /* intrucciones: error  */
-#line 429 "assemble.y"
+#line 432 "assemble.y"
                         {if(pre==1){
 				errores= 315;
 	}}
-#line 1645 "assemble.tab.c"
+#line 1648 "assemble.tab.c"
     break;
 
   case 30: /* reservas: '.' ORIG HEXA  */
-#line 434 "assemble.y"
+#line 437 "assemble.y"
                                    {if(pre==1){
 		nofinoseainicio = 0;
 		origen=strtol((yyvsp[0].str)+1, '\0',16);
 	}}
-#line 1654 "assemble.tab.c"
+#line 1657 "assemble.tab.c"
     break;
 
   case 31: /* reservas: '.' ORIG error  */
-#line 438 "assemble.y"
+#line 441 "assemble.y"
                                     {if(pre==1){
         	errores= 311;
 		}
 		}
-#line 1663 "assemble.tab.c"
+#line 1666 "assemble.tab.c"
     break;
 
   case 32: /* reservas: '.' END  */
-#line 442 "assemble.y"
+#line 445 "assemble.y"
                                         {if(pre==1){
 		fin= 7; //tengo tiempo, para saber
 		}else{
@@ -1671,31 +1674,31 @@ yyreduce:
 			errores = 1;
 	}
 	}
-#line 1675 "assemble.tab.c"
+#line 1678 "assemble.tab.c"
     break;
 
   case 33: /* reservas: ETIQUETA '.' FILL dato  */
-#line 449 "assemble.y"
+#line 452 "assemble.y"
                                         {if(pre==1){
 		matriz_etiquetas_k[contador_matriz_etiquets]=(yyvsp[-3].str);
 		matriz_etiquetas_d[contador_matriz_etiquets]=pc;
 		contador_matriz_etiquets++;
 	}}
-#line 1685 "assemble.tab.c"
+#line 1688 "assemble.tab.c"
     break;
 
   case 34: /* reservas: ETIQUETA '.' BLKW  */
-#line 454 "assemble.y"
+#line 457 "assemble.y"
                                                  {if(pre==1){
 		matriz_etiquetas_k[contador_matriz_etiquets]=(yyvsp[-2].str);
 		matriz_etiquetas_d[contador_matriz_etiquets]=pc;
 		contador_matriz_etiquets++;
 	}}
-#line 1695 "assemble.tab.c"
+#line 1698 "assemble.tab.c"
     break;
 
   case 35: /* dato: NUMERO  */
-#line 461 "assemble.y"
+#line 464 "assemble.y"
                {
         if(pre==0) {
             A = atoi((yyvsp[0].str)+1);
@@ -1707,19 +1710,19 @@ yyreduce:
             }
         }
     }
-#line 1711 "assemble.tab.c"
+#line 1714 "assemble.tab.c"
     break;
 
   case 36: /* dato: ERROR_NUMERO  */
-#line 472 "assemble.y"
+#line 475 "assemble.y"
                    {
         	errores= 312;
     }
-#line 1719 "assemble.tab.c"
+#line 1722 "assemble.tab.c"
     break;
 
   case 37: /* datoBR: NUMERO  */
-#line 477 "assemble.y"
+#line 480 "assemble.y"
                {
         if(pre==0) {
             A = atoi((yyvsp[0].str)+1);
@@ -1731,19 +1734,19 @@ yyreduce:
             }
         }
     }
-#line 1735 "assemble.tab.c"
+#line 1738 "assemble.tab.c"
     break;
 
   case 38: /* datoBR: ERROR_NUMERO  */
-#line 488 "assemble.y"
+#line 491 "assemble.y"
                    {
         	errores= 312;
     }
-#line 1743 "assemble.tab.c"
+#line 1746 "assemble.tab.c"
     break;
 
   case 39: /* direccion: HEXA  */
-#line 495 "assemble.y"
+#line 498 "assemble.y"
                                   {
 		if(pre==1){direccionador=strtol((yyvsp[0].str)+1, '\0',16);
 		if (direccionador>65536 || direccionador<0) { // agregue || direccionador<0
@@ -1753,11 +1756,11 @@ yyreduce:
 		if(pre==0){direccionador=strtol((yyvsp[0].str)+1, '\0',16);}
 		
 	}
-#line 1757 "assemble.tab.c"
+#line 1760 "assemble.tab.c"
     break;
 
   case 40: /* direccion: ETIQUETA  */
-#line 504 "assemble.y"
+#line 507 "assemble.y"
                                        {
 		if(pre==0){
 			direccionador = buscarDireccionEtiqueta((yyvsp[0].str));
@@ -1767,11 +1770,11 @@ yyreduce:
 			}
 		}
 	}
-#line 1771 "assemble.tab.c"
+#line 1774 "assemble.tab.c"
     break;
 
   case 41: /* direccionBR: HEXA  */
-#line 515 "assemble.y"
+#line 518 "assemble.y"
                                   {
 		if(pre==1){direccionador=strtol((yyvsp[0].str)+1, '\0',16);
 		
@@ -1789,11 +1792,11 @@ yyreduce:
 		if(pre==0){direccionador=strtol((yyvsp[0].str)+1, '\0',16);}
 		
 	}
-#line 1793 "assemble.tab.c"
+#line 1796 "assemble.tab.c"
     break;
 
   case 42: /* direccionBR: ETIQUETA  */
-#line 532 "assemble.y"
+#line 535 "assemble.y"
                                        {
 		if(pre==0){
 			direccionador = buscarDireccionEtiqueta((yyvsp[0].str));
@@ -1803,11 +1806,11 @@ yyreduce:
 			}
 		}
 	}
-#line 1807 "assemble.tab.c"
+#line 1810 "assemble.tab.c"
     break;
 
 
-#line 1811 "assemble.tab.c"
+#line 1814 "assemble.tab.c"
 
       default: break;
     }
@@ -2000,7 +2003,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 541 "assemble.y"
+#line 544 "assemble.y"
 
 	
 	void yyerror(const char *msje) {

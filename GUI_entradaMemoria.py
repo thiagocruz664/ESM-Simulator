@@ -42,6 +42,13 @@ class EditorTexto:
         self.code_editor.bind('<Control-y>', self.rehacer)
         self.code_editor.bind('<<Modified>>', self.on_modified)
 
+    def ajustar_zoom(self, zoom_value):
+        font_size = int(zoom_value * 0.10)
+        self.code_editor.configure(font=("Arial", font_size))
+        self.code_title.config(font=("Arial", font_size))
+        # Ajusta el ancho para compensar el tamaño de fuente
+        self.code_editor.config(width=int(800/font_size))
+
     def deshacer(self, event=None):
         self.mensaje("Ctrl + Z")
         try:
@@ -84,7 +91,8 @@ class Memoria:
         self.memoria_title.grid(row=0,column=0,padx=15,pady=5,sticky="ns",columnspan=2)
         self.render_memory = {} #espacios de meomoria que estan en pantalla
         self.punto_de_apoyo = 0
-        for i in range(20):
+        self.range_memory = 20
+        for i in range(self.range_memory):
             entry = []
             entry0 = tk.Button(self.frame_memory,text=f"  ◽ x{format(12288+i,f'04x')}",font=("Arial", 8),borderwidth=0, relief="flat",highlightthickness=0,command=lambda i=i: self.breakpoint(i))
             entry0.grid(row=i+1,column=0,padx=0,pady=0,sticky="nswe")
@@ -158,6 +166,12 @@ class Memoria:
         if lang =="en":
             self.memoria_title.config(text="Memory:")
 
+    def ajustar_zoom(self, value):
+        for i in range(20):
+            for j in range(5):
+                self.render_memory[i][j].config(font=("Arial", int(value * 0.08)))
+        self.memoria_title.config(font=("Arial",int(value*0.10)))
+
     def breakpoint(self,i):
         if self.ab_memoria == 1:
             if self.punto_de_apoyo+i in self.breakpoints:
@@ -229,7 +243,7 @@ class Memoria:
         else:
             pass
         diferencial = 0
-        for i in self.render_memory:
+        for i in range(self.range_memory):
             #fiajate aca que cuando el pc sea mayor 65535 se reincie
             if (self.punto_de_apoyo+i>65535 and diferencial==0):
                 diferencial=self.punto_de_apoyo+i

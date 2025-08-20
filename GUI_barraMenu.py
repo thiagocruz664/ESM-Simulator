@@ -19,7 +19,7 @@ import tkinter as tk
 from tkinter import ttk
 
 class BarraMenu:
-    def __init__(self, ventana, lang, theme, nuevo_archivo, abrir_archivo, guardar_archivo, guardar_como, assembly, run, stepin, reset, toggle_mode, español, english, about, gab, gah):
+    def __init__(self, ventana, lang, theme, zoom_value, nuevo_archivo, abrir_archivo, guardar_archivo, guardar_como, assembly, run, stepin, reset, toggle_mode, español, english, about, gab, gah, ajustar_zoom):
         self.ventana = ventana
         self.lang = lang
         self.theme = theme
@@ -37,6 +37,8 @@ class BarraMenu:
         self.about = about
         self.guardar_archivo_binario = gab
         self.guardar_archivo_hexa = gah
+        self.zoom_value = zoom_value
+        self.ajustar_zoom = ajustar_zoom
         self.menu_frame = tk.Frame(self.ventana)
         self.menu_frame.grid(row=0,column=0,padx=0,pady=0,columnspan=2,sticky="nwe")
         self.separator = tk.Frame(self.menu_frame, height=2)  # Línea de 2px
@@ -44,7 +46,7 @@ class BarraMenu:
 
         self.archivo_button = tk.Button(self.menu_frame, text="🗂️ Archivo", command=self.toggle_archivo_menu,borderwidth=0, relief="flat",highlightthickness=0)
         self.archivo_button.pack(side="left", padx=5)
-        print(type(self.archivo_button))
+        
         self.ensamblar_button = tk.Button(self.menu_frame, text="🛠️ Ensamblar", command=self.assembly,borderwidth=0, relief="flat",highlightthickness=0)
         self.ensamblar_button.pack(side="left", padx=5)
 
@@ -56,9 +58,12 @@ class BarraMenu:
 
         self.limpiar_button = tk.Button(self.menu_frame, text="↻", command=self.reset,borderwidth=0, relief="flat",highlightthickness=0)
         self.limpiar_button.pack(side="left", padx=5)
-        
+
         self.setting_button = tk.Button(self.menu_frame, text="⚙️", command=self.toggle_frame_settings,borderwidth=0, relief="flat",highlightthickness=0)
         self.setting_button.pack(side="right", padx=5)
+
+        self.zoom_slider = tk.Scale(self.menu_frame, from_=100, to=200, showvalue=False, orient=tk.HORIZONTAL, borderwidth=0, relief="flat", highlightthickness=0, command= lambda value: self.actualizar_zoom(value))
+        self.zoom_slider.pack(side="right", padx=50)
 
         self.archivo_menu_frame = None
         self.idioma_menu_frame = None
@@ -77,6 +82,12 @@ class BarraMenu:
         self.run_button.configure(bg=theme["button_bg"],fg=theme["button_fg"],activebackground=theme["menu_active_bg"],activeforeground=theme["menu_active_fg"])
         self.limpiar_button.configure(bg=theme["button_bg"],fg=theme["button_fg"],activebackground=theme["menu_active_bg"],activeforeground=theme["menu_active_fg"])
         self.setting_button.configure(bg=theme["button_bg"],fg=theme["button_fg"],activebackground=theme["menu_active_bg"],activeforeground=theme["menu_active_fg"])
+        self.zoom_slider.configure(bg=theme["scroll_bg"],troughcolor=theme["scroll_fg"],activebackground=theme["scroll_active"],highlightbackground=theme["menu_bg"],highlightcolor=theme["menu_bg"])
+
+    def actualizar_zoom(self, value):
+        self.zoom_value = value
+        self.zoom_slider.set(value)
+        self.ajustar_zoom(int(value))
 
     def toggle_archivo_menu(self):
         if self.archivo_menu_frame:

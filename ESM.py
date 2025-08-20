@@ -1481,6 +1481,20 @@ def about():
     except Exception as ex:
         log(f"Error (line 1350): {ex}")
 
+def ajustar_zoom(valor):
+    if valor < 100:
+        valor = 100
+    if valor > 200:
+        valor = 200
+    global zoom_value
+    zoom_value = int(valor)
+    editor.ajustar_zoom(zoom_value)
+    consola.ajustar_zoom(zoom_value)
+    memoria.ajustar_zoom(zoom_value)
+    data_view.ajustar_zoom(zoom_value)
+    menu.zoom_slider.set(zoom_value)
+    log(f"Zoom ajustado a: {zoom_value}%")
+
 ventana = tk.Tk()
 ventana.title(f"ESM Simulator {version}")
 ventana.geometry("800x600")
@@ -1489,11 +1503,16 @@ ventana.resizable(True, True)
 ventana.grid_rowconfigure(1, weight=1)
 ventana.grid_columnconfigure(1, weight=1)
 
-menu = BarraMenu(ventana, lang, theme, nuevo_archivo, abrir_archivo, guardar_archivo, guardar_como, assembly, run, stepin, reset, toggle_mode, español, english, about, guardar_archivo_binario, guardar_archivo_hexadecimal)
+zoom_value = 100 #aca ya fue todo y pongo el zoom inicial donde quiero
+
+menu = BarraMenu(ventana, lang, theme, zoom_value, nuevo_archivo, abrir_archivo, guardar_archivo, guardar_como, assembly, run, stepin, reset, toggle_mode, español, english, about, guardar_archivo_binario, guardar_archivo_hexadecimal, ajustar_zoom)
 editor = EditorTexto(ventana,guardar_archivo,escrivir_archivo,mostrar_mensaje)
 consola = Consola(ventana,lang)
 memoria = Memoria(ventana,diccionario,pc,ab,theme)
 data_view = Variables(ventana)
+
+ventana.bind('<Control-plus>', lambda event: ajustar_zoom(zoom_value + 10))
+ventana.bind('<Control-minus>', lambda event: ajustar_zoom(zoom_value - 10))
 
 ventana.bind('<Control-z>', editor.deshacer)
 ventana.bind('<Control-y>', editor.rehacer)
@@ -1505,6 +1524,7 @@ else:
 configs()
 cambiar_lenguaje(lang)
 apply_theme()
+ajustar_zoom(zoom_value)
 
 ventana.mainloop()
 

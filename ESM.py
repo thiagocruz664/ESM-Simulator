@@ -32,14 +32,20 @@ version = 19.4
 
 """
 Change log:
+
         Bugs:
-    --ST de un TRAPx23 guarda el acumulador correcto, no un 0 como antes
+    --Reset limpia de forma correcata la memoria
+    --Deteccion de bucles infinitos agregada + error asociado
+    --Segundo Trapx23 crash y repeat input corregido
+    --Complemento a 2 agregado para traductor_st y accumulador
+    --Opcode de traps corregidos (101 -> 111)
+    --ST mantiene el dato actual de registro
+    --Errores que se detectaban post ensamblar, ahora se detectan todos pre ensamblar
+
         Features:
-    --Hipervinculo en link de la pestaña de about ahora se abre al dar click en el
-    --Gmails corregidos
-    --Se agrego la variable version
-    --Rediseño smooth de memoria
-    --Se agrego la crecion de consola.log junto a todos los logs que necesarios del python
+    --Rediseño de pestaña de info en modo oscuro
+    --Zoom keybind y toolbar modes
+    --Errores indican la direccion de memoria en la qque ocurrieron
 """
 
 primer_inicio = True
@@ -1527,4 +1533,5 @@ apply_theme()
 ajustar_zoom(zoom_value)
 
 ventana.mainloop()
+
 

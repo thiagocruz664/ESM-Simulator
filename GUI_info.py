@@ -26,13 +26,14 @@ class Informacion:
         self.ventana_tam = ventana.winfo_width()
 
         self.canvas = tk.Canvas(ventana)
-        self.canvas.grid(row=0, column=0, rowspan=3, columnspan=2, sticky="nsew")
+        self.canvas.grid(row=0, column=0, rowspan=4, columnspan=3, sticky="nsew")
 
         self.scroll = tk.Scrollbar(ventana, orient="vertical", command=self.canvas.yview)
         self.scroll.grid(row=0, rowspan=3, column=3, sticky="nsw")
         self.canvas.configure(yscrollcommand=self.scroll.set)
 
         self.frame_info = tk.Frame(self.canvas)
+        self.frame_info.grid_configure(sticky="nsew")
         self.canvas.create_window(((self.ventana_tam/2)-15, 0), window=self.frame_info, anchor="n")
         self.frame_info.bind("<Configure>", self.on_frame_configure)
 
@@ -40,7 +41,7 @@ class Informacion:
         self.canvas.bind_all("<Button-4>", self._on_mousewheel)
         self.canvas.bind_all("<Button-5>", self._on_mousewheel)
 
-        self.img_encabezado = tk.PhotoImage(file="./img/encabezado_fio.png")
+        self.img_encabezado = self.cargar_imagen("encabezado_fio")
         self.encabezado = tk.Label(self.frame_info, image=self.img_encabezado)
         self.encabezado.grid(row=0, column=0, columnspan=3, sticky="ew")
         self.titulo = tk.Label(self.frame_info, text="ESM Simulator v19", font=("Times New Roman", 24), justify="center")
@@ -52,14 +53,14 @@ class Informacion:
         self.parrafo1.tag_configure("justificado", justify="left")
         self.parrafo1.config(state=tk.DISABLED)
 
-        self.img_logo = tk.PhotoImage(file="./img/logo_esm.png")
+        self.img_logo = self.cargar_imagen("logo_esm")
         self.logo = tk.Label(self.frame_info, image=self.img_logo)
         self.logo.grid(row=2, column=2, sticky="ew")
 
-        self.img_micro = tk.PhotoImage(file="./img/micro_esm_es.png")
+        self.img_micro = self.cargar_imagen("micro_esm_es")
         self.micro = tk.Label(self.frame_info, image=self.img_micro)
         self.micro.grid(row=3, column=0, columnspan=2, sticky="ew")
-        self.img_isa = tk.PhotoImage(file="./img/isa_esm.png")
+        self.img_isa = self.cargar_imagen("isa_esm")
         self.isa = tk.Label(self.frame_info, image=self.img_isa)
         self.isa.grid(row=3, column=2, sticky="ew")
 
@@ -101,62 +102,46 @@ class Informacion:
         elif event.num == 5 or event.delta < 0:
             self.canvas.yview_scroll(1, "units")
 
-    def invert_colors(self,image):
-        width, height = image.width(), image.height()
-        inverted_image = tk.PhotoImage(width=width, height=height)
-        for x in range(width):
-            for y in range(height):
-                r, g, b = image.get(x, y)
-                inverted_image.put("#{:02x}{:02x}{:02x}".format(255-r, 255-g, 255-b), (x, y))
-        return inverted_image
+    def cargar_imagen(self, nombre_base):
+        archivo = f"./img/{nombre_base}_O.png" if self.mode == "dark" else f"./img/{nombre_base}.png"
+        try:
+            return tk.PhotoImage(file=archivo)
+        except Exception as e:
+            print(f"Error al cargar imagen: {archivo} → {e}")
+            return None
+
     def tema(self):
+        self.img_encabezado = self.cargar_imagen("encabezado_fio")
+        self.encabezado.config(image=self.img_encabezado)
+        self.img_logo = self.cargar_imagen("logo_esm")
+        self.logo.config(image=self.img_logo)
+        self.img_micro = self.cargar_imagen("micro_esm_es")
+        self.micro.config(image=self.img_micro)
+        self.img_isa = self.cargar_imagen("isa_esm")
+        self.isa.config(image=self.img_isa)
+
         if self.mode == "light":
-            self.img_encabezado = self.img_encabezado
-            self.encabezado.config(image=self.img_encabezado)
-            self.img_logo = self.img_logo
-            self.logo.config(image=self.img_logo)
-            self.img_micro = self.img_micro
-            self.micro.config(image=self.img_micro)
-            self.img_isa = self.img_isa
-            self.isa.config(image=self.img_isa)
-            self.canvas.config(bg="white")
-            self.frame_info.config(bg="white")
-            self.titulo.config(bg="#012940", fg="white")
-            self.parrafo1.config(bg="white", fg="black")
-            self.parrafo2.config(bg="white", fg="black")
-            self.logo.config(bg="white")
-            self.micro.config(bg="white")
-            self.isa.config(bg="white")
-            self.creditos.config(bg="white", fg="black")
-            self.button_frame.config(bg="#012940")
-            self.boton_idioma.config(bg="#012940", fg="white")
-            self.boton_licencia.config(bg="#012940", fg="white")
-            self.boton_acerca.config(bg="#012940", fg="white")
-            self.boton_cerrar.config(bg="#012940", fg="white")
+            bg_color = "white"
+            text_color = "black"
         else:
-            self.img_encabezado = self.invert_colors(self.img_encabezado)
-            self.encabezado.config(image=self.img_encabezado)
-            self.img_logo = self.invert_colors(self.img_logo)
-            self.logo.config(image=self.img_logo)
-            self.img_micro = self.invert_colors(self.img_micro)
-            self.micro.config(image=self.img_micro)
-            self.img_isa = self.invert_colors(self.img_isa)
-            self.isa.config(image=self.img_isa)
-            self.canvas.config(bg="black")
-            self.frame_info.config(bg="black")
-            self.titulo.config(bg="#012940", fg="white")
-            self.parrafo1.config(bg="black", fg="white")
-            self.parrafo2.config(bg="black", fg="white")
-            self.logo.config(bg="black")
-            self.micro.config(bg="black")
-            self.isa.config(bg="black")
-            self.creditos.config(bg="black", fg="white")
-            self.button_frame.config(bg="#012940")
-            self.boton_idioma.config(bg="#012940", fg="white")
-            self.boton_licencia.config(bg="#012940", fg="white")
-            self.boton_acerca.config(bg="#012940", fg="white")
-            self.boton_cerrar.config(bg="#012940", fg="white")
-    
+            bg_color = "black"
+            text_color = "white"
+
+        self.canvas.config(bg=bg_color)
+        self.frame_info.config(bg=bg_color)
+        self.titulo.config(bg="#012940", fg="white")
+        self.parrafo1.config(bg=bg_color, fg=text_color)
+        self.parrafo2.config(bg=bg_color, fg=text_color)
+        self.logo.config(bg=bg_color)
+        self.micro.config(bg=bg_color)
+        self.isa.config(bg=bg_color)
+        self.creditos.config(bg=bg_color, fg=text_color)
+        self.button_frame.config(bg="#012940")
+        self.boton_idioma.config(bg="#012940", fg="white")
+        self.boton_licencia.config(bg="#012940", fg="white")
+        self.boton_acerca.config(bg="#012940", fg="white")
+        self.boton_cerrar.config(bg="#012940", fg="white")
+
     def change_lenguaje(self):
         self.limpiar()
         if self.lang == "es":
@@ -199,7 +184,7 @@ class Informacion:
                                         "   cruzthiagoagustin664@gmail.com\n\n"
                                         "       RYBERG, Brian Ezequiel\n"
                                         "   ryberg.brian2@gmail.com\n\n"
-                                        "       MEIR, Jonathan Cristian\n"
+                                        "       MEIER, Jonathan Cristian\n"
                                         "   jonny.meier26@gmail.com\n\n"
                                         "En caso de cualquier bug, contactar con algún desarrollador\n"
                                         "detallando el problema para poder solucionarlo. Gracias.")
@@ -272,7 +257,7 @@ class Informacion:
                                         "   cruzthiagoagustin664@gmail.com\n\n"
                                         "       RYBERG, Brian Ezequiel\n"
                                         "   ryberg.brian2@gmail.com\n\n"
-                                        "       MEIR, Jonathan Cristian\n"
+                                        "       MEIER, Jonathan Cristian\n"
                                         "   jonny.meier26@gmail.com\n\n"
                                         "In case of any bugs, please contact a developer with details\n"
                                         "about the issue so it can be resolved. Thank you.")
@@ -329,4 +314,3 @@ class Informacion:
         self.frame_info.destroy()
         self.canvas.destroy()
         self.scroll.destroy()
-

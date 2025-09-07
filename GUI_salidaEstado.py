@@ -44,6 +44,14 @@ class Consola:
         self.consola_scrollbar.configure(bg=theme["scroll_bg"],troughcolor=theme["scroll_fg"],activebackground=theme["scroll_active"],highlightbackground=theme["menu_bg"],highlightcolor=theme["menu_bg"])
         self.clear_botton.config(bg=theme["button_bg"],fg=theme["button_fg"],activebackground=theme["menu_active_bg"],activeforeground=theme["menu_active_fg"])
     
+    def ajustar_zoom(self, zoom_value):
+        font_size = int(zoom_value * 0.10)
+        self.consola.config(font=("Arial", font_size))
+        self.consola_title.config(font=("Arial", font_size))
+        self.clear_botton.config(font=("Arial", font_size))
+        # Ajusta el ancho para compensar el tamaño de fuente
+        self.consola.config(width=int(800/font_size), height=int(100/font_size))
+
     def print(self,mensaje,tob=0):
         if tob == 1:
             self.consola.config(state=tk.NORMAL)
@@ -153,6 +161,17 @@ class Variables:
         self.data_status.configure(bg=theme["bg"],fg=theme["fg"])
         self.pc.configure(bg=theme["bg"],fg=theme["fg"])
         self.data_pc.configure(bg=theme["bg"],fg=theme["fg"])
+
+    def ajustar_zoom(self, zoom_value):
+        font_size = int(zoom_value * 0.16)
+        self.register.configure(font=("Arial", font_size))
+        self.data_register.configure(font=("Arial", font_size))
+        self.status.configure(font=("Arial", font_size))
+        self.data_status.configure(font=("Arial", font_size))
+        self.pc.configure(font=("Arial", font_size))
+        self.data_pc.configure(font=("Arial", font_size))
+        # Ajusta el ancho para compensar el tamaño de fuente
+        self.frame_principal.config(height=int((10*16)/font_size))
 
     def lenguaje(self,lang):
         if lang == "es":

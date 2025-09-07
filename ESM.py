@@ -32,17 +32,24 @@ version = 19.4
 
 """
 Change log:
+
         Bugs:
-    --ST de un TRAPx23 guarda el acumulador correcto, no un 0 como antes
+    --Reset limpia de forma correcata la memoria
+    --Deteccion de bucles infinitos agregada + error asociado
+    --Segundo Trapx23 crash y repeat input corregido
+    --Complemento a 2 agregado para traductor_st y accumulador
+    --Opcode de traps corregidos (101 -> 111)
+    --ST mantiene el dato actual de registro
+    --Errores que se detectaban post ensamblar, ahora se detectan todos pre ensamblar
+
         Features:
-    --Hipervinculo en link de la pestaña de about ahora se abre al dar click en el
-    --Gmails corregidos
-    --Se agrego la variable version
-    --Rediseño smooth de memoria
-    --Se agrego la crecion de consola.log junto a todos los logs que necesarios del python
+    --Rediseño de pestaña de info en modo oscuro
+    --Zoom keybind y toolbar modes
+    --Errores indican la direccion de memoria en la qque ocurrieron
 """
 
 primer_inicio = True
+s = 0
 ab = 0
 tib = 0
 end = False
@@ -51,6 +58,7 @@ diccionario = None
 pc = None
 runer2 = False
 lang, current_theme, theme = None, None, None
+contador_branch = {}
 
 log_file = open("consola.log","w")
 def log(msj):
@@ -614,7 +622,8 @@ errores_lang = {
         316: "Error 316: No se encontro el final del codigo (.END)",
         317: "Error 317: No se encontro la direccion inicial de memoria (.ORIG)",
         318: "Error 318: La instrucción BR esperaba un offset de hasta 9bits (-511 a 512)",
-        319: "Error 319: La instrucción esperaba un offset de hasta 12bits (-2048 a 2047)"
+        319: "Error 319: La instrucción esperaba un offset de hasta 12bits (-2048 a 2047)",
+        320: "Error 320: Caracter invalido"
     },
     "en": {
         100: "Error 100: Could not open the file",
@@ -644,14 +653,27 @@ errores_lang = {
         316: "Error 316: The end of the code (.END) was not found",
         317: "Error 317: The initial memory address (.ORIG) was not found",
         318: "Error 318: The BR instruction expected an offset of up to 9 bits (-512 to 511)",
-        319: "Error 319: The instruction expected an offset of up to 12 bits (-2048 to 2047)"
+        319: "Error 319: The instruction expected an offset of up to 12 bits (-2048 to 2047)",
+        320: "Error 320: Invalid character"
     }
 }
 def error(e):
-    global end
+    global end, pc, s
     if e != 0 and not end:
         errores = errores_lang[lang]
-        consola.print(errores[e])
+        if e == 1:
+            consola.print(errores[e])
+        else:
+            if pc:
+                if s == 0:
+                    c_pc = (ctypes.c_int).in_dll(lib, "pc")
+                    pc = c_pc.value
+                    consola.print(f"PC (x{format(pc,f'04x')}) => {errores[e]}") #este es coso1
+                else:
+                    consola.print(f"PC (x{format(pc,f'04x')}) => {errores[e]}")
+                    s=4
+            else:
+                consola.print(errores[e])
         if e != 1:
             reset()
         else:
@@ -670,20 +692,52 @@ def consola_capture():
     consola.consola.bind("<Key>", capture_char)
     consola.consola.focus()
 def capture_char(event):
-    global tib
+    global tib, ab
+    
     while tib == 1:
+        teclas_especiales = {"Return", "KP_Enter"}  
         char = event.char
-        if char.isprintable():
-            consola.print(f"{char}")
+        
+        
+        if event.keysym in teclas_especiales:
+            char = '\r'  
+        
+    
+        teclas_ignorar = {
+            "Shift_L", "Shift_R", "Control_L", "Control_R", 
+            "Alt_L", "Alt_R", "Caps_Lock", "Meta", "ISO_Level3_Shift"
+        }
+        
+       
+        if event.keysym in teclas_ignorar or (event.state & 0x00000004):  
+            return
+        
+        if char is None or (not char.isprintable() and char != '\r'):
+            error(320)
+            return
+        
+        if not (char.isalnum() or char in ['_', '-'] or char == '\r'):  
+            error(320)
+            return
+        
+      
+        if char.isprintable() or char == '\r':
+            if ab == 0:
+                consola.consola.delete("insert -1 chars", "insert")  # Elimina carácter anterior
+                display_char = ' ' if char == '\r' else char
+                consola.print(display_char) 
+                ab = 1
+            
             tib = 0
-            global ab
-            ab = 1
             lib.bandera_check()
             c_int_value = ctypes.c_int(ord(char))
             lib.modificar_acumulador(c_int_value)
             break
+    
     consola.consola.config(state=tk.DISABLED)
     consola.consola.unbind("<Key>")
+    
+    
     c_origen = (ctypes.c_int).in_dll(lib, "origen")
     c_pc = (ctypes.c_int).in_dll(lib, "pc")
     pc = c_pc.value
@@ -691,59 +745,75 @@ def capture_char(event):
     acumulador = c_acumulador.value
     c_status = (ctypes.c_char_p).in_dll(lib, "ALUFlags")
     status = c_status.value.decode("utf-8")
+    
     try:
-        if(diccionario[hex(pc)][1].split(" ")[0].replace("\n","")=="ST"):
-            imm12 = diccionario[hex(pc)][1].split(" ")[1].replace("\n","")
-            if imm12[0] == "#": ##CASO DE NUMERO DIRECTO
-                borrar = int(imm12[1:])+1
-            elif imm12[0] == 'x': ##CASO DE DIRECCION DE MEMORIA
-                dir_objetivo_borrar = int(imm12[1:],16)
-                borrar = dir_objetivo_borrar - (pc)
-            else:   ##CASO DE ETIQUETA
+        if diccionario[hex(pc)][1].split(" ")[0].replace("\n", "") == "ST":
+            imm12 = diccionario[hex(pc)][1].split(" ")[1].replace("\n", "")
+            if imm12[0] == "#":  # CASO DE NÚMERO DIRECTO
+                borrar = int(imm12[1:]) + 1
+            elif imm12[0] == 'x':  # CASO DE DIRECCIÓN DE MEMORIA
+                dir_objetivo_borrar = int(imm12[1:], 16)
+                borrar = dir_objetivo_borrar - pc
+            else:  # CASO DE ETIQUETA
                 etiqueta_siono = True
-                imm12 = imm12.replace("\n","")                      
+                imm12 = imm12.replace("\n", "")
                 c_string = ctypes.c_char_p(imm12.encode('utf-8'))
                 dir_etiq_int = lib.buscarDireccionEtiqueta(c_string)
-                borrar = dir_etiq_int - (pc)
-                remplazar_etiqueta = diccionario[hex(pc+borrar)][0]
-            acum_hexa = format(ord(char),f'04x').upper()
-            acum_bin = format(ord(char),f'0{16}b')
-            if pc+borrar < 0:
-                dir = 65536 + (pc+borrar)
+                borrar = dir_etiq_int - pc
+                remplazar_etiqueta = diccionario[hex(pc + borrar)][0]
+            
+            acum_hexa = format(ord(char), '04x').upper()
+            acum_bin = format(ord(char), '0{16}b')
+            if pc + borrar < 0:
+                dir = 65536 + (pc + borrar)
                 log(f"RULETA {dir}")
             else:
-                dir = pc +borrar
+                dir = pc + borrar
                 log(f"NO RULETA {dir}")
-            instrucsão = traductor_para_st(acumulador,pc+borrar)
-            if instrucsão != None:
-                instrucsão = instrucsão + "\0"
+            
+            instrucsão = traductor_para_st(acumulador, pc + borrar)
+            if instrucsão is not None:
+                instrucsão += "\0"
                 c_string_st = ctypes.c_char_p(instrucsão.encode('utf-8'))
-                lib.reemplazar_linea_st(c_string_st,dir)
+                lib.reemplazar_linea_st(c_string_st, dir)
             else:
-                instrucsão = f"#{acumulador}"
+                # Forzar a 16 bits
+                acum16 = acumulador & 0xFFFF  
+
+                # Interpretar como com2
+                if acum16 & 0x8000:
+                    acum_signed = acum16 - 0x10000
+                else:
+                    acum_signed = acum16
+                instrucsão = f"#{acum_signed}"
                 c_string_st = ctypes.c_char_p(instrucsão.encode('utf-8'))
-                lib.reemplazar_linea_st(c_string_st,dir)
+                lib.reemplazar_linea_st(c_string_st, dir)
+            
             if etiqueta_siono:
-                tupla_remplazo = (remplazar_etiqueta,f"{instrucsão}",f"{acum_bin}",f"{acum_hexa}")
+                tupla_remplazo = (remplazar_etiqueta, f"{instrucsão}", f"{acum_bin}", f"{acum_hexa}")
             else:
-                tupla_remplazo = (None,f"{instrucsão}",f"{acum_bin}",f"{acum_hexa}")
+                tupla_remplazo = (None, f"{instrucsão}", f"{acum_bin}", f"{acum_hexa}")
             diccionario[hex(dir)] = tupla_remplazo
             log(f"LO QUE GUARDE {diccionario[hex(dir)]}")
     except Exception as ex:
         log(f"Error (line 715): {ex}")
+    
     try:
-        data_view.actualizar(acumulador,status,format(pc,'04x'))
-        memoria.mapear_memoria(diccionario,c_origen.value,pc)
+        data_view.actualizar(acum_signed, status, format(pc, '04x'))
+        memoria.mapear_memoria(diccionario, c_origen.value, pc)
     except Exception as ex:
         log(f"Error (line 720): {ex}")
+    
     try:
         global runer
-        if(runer==1):
+        if runer == 1:
             runer = 0
             run()
     except Exception as ex:
         log(f"Error (line 727): {ex}")
-
+    
+    tib = 1
+    
 def assembly():
     try:
         os.remove("input.tmp")
@@ -824,7 +894,7 @@ def assembly():
         log(contenido)
 
     ##DICCIONARIO
-    global diccionario
+    global diccionario, pc, s #Report 15
     diccionario = {}
     c_origen = (ctypes.c_int).in_dll(lib, "origen")
     pc = c_origen.value
@@ -838,6 +908,7 @@ def assembly():
     log(f"Origen: {c_origen}\n PC {pc}")
     try:
         while(True):
+            s = 1
             linea = lib.get_line(pc).decode('utf-8')
             if (linea != ".END\n"):
                 if lib.get_etiq(pc) != None:
@@ -964,6 +1035,8 @@ def assembly():
                             imm12 = imm12.replace("\n","")                        
                             c_string = ctypes.c_char_p(imm12.encode('utf-8'))
                             dir_etiq_int = lib.buscarDireccionEtiqueta(c_string)
+                            if dir_etiq_int == -1:
+                                error(314)
                             binario = offset_direccion(dir_etiq_int,binario,pc)
                         ##HAY QUE AÑADIR EL TEMA DE BORRAR INSTRUCCIONES EN EL DICCIO CUANDO ENTRE ST, NO ES ACA
                     case "BR":
@@ -1071,7 +1144,7 @@ def assembly():
                             
                     case "TRAP":
                         imm12 = linea.split(" ")[1].replace("\n","")
-                        binario = "101"
+                        binario = "111"
                         if imm12 == "x21":
                             binario = binario + "0000000100001"
                         elif imm12 == "x23":
@@ -1117,26 +1190,41 @@ def assembly():
         log(f"Error (line 1099): {ex}")
     
     if(e==0):
-        if(lang=="es"):
-            consola.print("¡Código ensamblado exitosamente!")
-        elif(lang=="en"):
-            consola.print("¡Assembly successful!")
+        if s!=4:
+            if(lang=="es"):
+                consola.print("¡Código ensamblado exitosamente!")
+            elif(lang=="en"):
+                consola.print("¡Assembly successful!")
         global ab
         ab = 1
         memoria.ab_memoria = 1
         c_acumulador = (ctypes.c_int).in_dll(lib, "acumulador")
         c_acumulador = c_acumulador.value
+        # Forzar a 16 bits
+        acum16 = c_acumulador & 0xFFFF  
+
+        # Interpretar como com2
+        if acum16 & 0x8000:
+            acum_signed = acum16 - 0x10000
+        else:
+            acum_signed = acum16
         c_status = (ctypes.c_char_p).in_dll(lib, "ALUFlags")
         c_status = c_status.value
         c_pc = (ctypes.c_int).in_dll(lib, "pc")
         c_pc = c_pc.value
-        data_view.actualizar(c_acumulador,c_status,format(c_pc,'04x'))
+        data_view.actualizar(acum_signed,c_status,format(c_pc,'04x'))
         log(f"PC: {c_pc}    Acumulador: {c_acumulador}    ALUFlags: {c_status}")
     else:
         error(e)
         log(f"Error en el assembly {e}")
 def stepin():
-    global lang,ab,tib
+    global lang,ab,tib,contador_branch, runer2
+    iteracionesMaximas = 200
+    for branch_run in contador_branch:
+        if contador_branch[branch_run] > iteracionesMaximas:
+            runer2 = False
+            consola.print(f"SE DETECTO UN POSIBLE BUCLE INFINITO EN LA DIRECCION {hex(branch_run)}, DETENIENDO EJECUCION")
+            contador_branch.clear()
     try:
         if(ab==1):
             global s
@@ -1179,8 +1267,23 @@ def stepin():
                             remplazar_etiqueta = diccionario[hex(pc+borrar)][0]
                         c_acumulador = (ctypes.c_int).in_dll(lib, "acumulador")
                         acumulador = c_acumulador.value
-                        acum_hexa = format(acumulador,f'04x').upper()
-                        acum_bin = format(acumulador,f'0{16}b')
+
+                        # Forzar a 16 bits
+                        acum16 = acumulador & 0xFFFF  
+
+                        # Interpretar como com2
+                        if acum16 & 0x8000:
+                            acum_signed = acum16 - 0x10000
+                        else:
+                            acum_signed = acum16
+
+                        if acumulador >= 0:
+                            acum_bin = format(acumulador,f'0{16}b')
+                            acum_hexa = format(acumulador,f'04x').upper()
+                        else:
+                            acum_bin = format((1 << 16) + acumulador, f'0{16}b')
+                            acum_hexa = format((1<<16) + acumulador,f'04x').upper()
+
                         if pc+borrar < 0:
                             dir = 65536 + (pc+borrar)
                             log(f"RULETA {dir}")
@@ -1193,7 +1296,8 @@ def stepin():
                             c_string_st = ctypes.c_char_p(instrucsão.encode('utf-8'))
                             lib.reemplazar_linea_st(c_string_st,dir)
                         else:
-                            instrucsão = f"#{acumulador}"
+                            log(f"INSTRUCCION ST NO ENCONTRADA, SE PONE #{acum_signed}")
+                            instrucsão = f"#{acum_signed}"
                             c_string_st = ctypes.c_char_p(instrucsão.encode('utf-8'))
                             lib.reemplazar_linea_st(c_string_st,dir)
                         if etiqueta_siono:
@@ -1203,7 +1307,16 @@ def stepin():
                         diccionario[hex(dir)] = tupla_remplazo
                         log(f"LO QUE GUARDE {diccionario[hex(dir)]}")
                 except Exception as ex:
-                    log(f"Error (line 1188): {ex}")
+                    log(f"Error (SE QUISO DETECTAR UN ST): {ex}")
+                try:
+                    if(diccionario[hex(pc)][1].split(" ")[0].replace("\n","")=="BR"):     
+                        if pc not in contador_branch:
+                            contador_branch[pc] = 1           
+                        else:
+                            contador_branch[pc] += 1
+                        
+                except Exception as ex:
+                    log(f"ERROR (SE QUISO DETECTAR UN BR): {ex}")
                 if(tib==1):
                     consola_capture()
                     c_status = (ctypes.c_char_p).in_dll(lib, "ALUFlags")
@@ -1225,9 +1338,16 @@ def stepin():
                     memoria.mapear_memoria(diccionario,c_origen.value,pc)
                 else:
                     c_origen = (ctypes.c_int).in_dll(lib, "origen")
-                    data_view.actualizar(acumulador,status,format(pc,'04x'))
+                    # Forzar a 16 bits
+                    acum16 = acumulador & 0xFFFF  
+
+                    # Interpretar como com2
+                    if acum16 & 0x8000:
+                        acum_signed = acum16 - 0x10000
+                    else:
+                        acum_signed = acum16
+                    data_view.actualizar(acum_signed,status,format(pc,'04x'))
                     if pc in memoria.breakpoints:
-                        global runer2
                         runer2 = False
                         log(f"BREAKPOINT {runer2}")
                     memoria.mapear_memoria(diccionario,c_origen.value,pc)
@@ -1367,6 +1487,20 @@ def about():
     except Exception as ex:
         log(f"Error (line 1350): {ex}")
 
+def ajustar_zoom(valor):
+    if valor < 100:
+        valor = 100
+    if valor > 200:
+        valor = 200
+    global zoom_value
+    zoom_value = int(valor)
+    editor.ajustar_zoom(zoom_value)
+    consola.ajustar_zoom(zoom_value)
+    memoria.ajustar_zoom(zoom_value)
+    data_view.ajustar_zoom(zoom_value)
+    menu.zoom_slider.set(zoom_value)
+    log(f"Zoom ajustado a: {zoom_value}%")
+
 ventana = tk.Tk()
 ventana.title(f"ESM Simulator {version}")
 ventana.geometry("800x600")
@@ -1375,11 +1509,16 @@ ventana.resizable(True, True)
 ventana.grid_rowconfigure(1, weight=1)
 ventana.grid_columnconfigure(1, weight=1)
 
-menu = BarraMenu(ventana, lang, theme, nuevo_archivo, abrir_archivo, guardar_archivo, guardar_como, assembly, run, stepin, reset, toggle_mode, español, english, about, guardar_archivo_binario, guardar_archivo_hexadecimal)
+zoom_value = 100 #aca ya fue todo y pongo el zoom inicial donde quiero
+
+menu = BarraMenu(ventana, lang, theme, zoom_value, nuevo_archivo, abrir_archivo, guardar_archivo, guardar_como, assembly, run, stepin, reset, toggle_mode, español, english, about, guardar_archivo_binario, guardar_archivo_hexadecimal, ajustar_zoom)
 editor = EditorTexto(ventana,guardar_archivo,escrivir_archivo,mostrar_mensaje)
 consola = Consola(ventana,lang)
 memoria = Memoria(ventana,diccionario,pc,ab,theme)
 data_view = Variables(ventana)
+
+ventana.bind('<Control-plus>', lambda event: ajustar_zoom(zoom_value + 10))
+ventana.bind('<Control-minus>', lambda event: ajustar_zoom(zoom_value - 10))
 
 ventana.bind('<Control-z>', editor.deshacer)
 ventana.bind('<Control-y>', editor.rehacer)
@@ -1391,5 +1530,8 @@ else:
 configs()
 cambiar_lenguaje(lang)
 apply_theme()
+ajustar_zoom(zoom_value)
 
 ventana.mainloop()
+
+

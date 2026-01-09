@@ -160,7 +160,7 @@ class Informacion:
         if self.lang == "es":
             self.parrafo1.insert(tk.END, "ESM Simulator es una herramienta educativa de código abierto desarrollada\n"
                                         "en Python, Yacc y Lex, basada en la arquitectura de conjunto de instrucciones\n"
-                                        "(ISA) de la Educational Stack Machine x16 (ESMx16). Su propósito principal es\n"
+                                        "(ISA) de la Educational Simplified Machine (ESM). Su propósito principal es\n"
                                         "facilitar el aprendizaje y la enseñanza de la programación en lenguaje ensamblador,\n"
                                         "proporcionando un entorno interactivo e intuitivo para el desarrollo, prueba y\n"
                                         "traducción de código assembly. Este simulador ha sido diseñado específicamente\n"
@@ -200,7 +200,7 @@ class Informacion:
             self.creditos.tag_configure("contacto", font=("Times New Roman", 10))
             self.creditos.config(state=tk.DISABLED)
 
-            self.parrafo2.insert(tk.END, "La microarquitectura ESMx16 y su correspondiente ISA fueron desarrolladas\n"
+            self.parrafo2.insert(tk.END, "La microarquitectura ESM y su correspondiente ISA fueron desarrolladas\n"
                                         "por la cátedra de Fundamentos de Informática de la Facultad de Ingeniería de\n"
                                         "Oberá (FIO-UNaM) como una alternativa simplificada a la LC-3 de Yale Patt. Su\n"
                                         "propósito no es reemplazar a la LC-3, sino servir como un primer escalón en el\n"
@@ -232,8 +232,8 @@ class Informacion:
             self.boton_idioma.config(text="Idioma")
         else:
             self.parrafo1.insert(tk.END, "ESM Simulator is an open-source educational tool developed in Python, Yacc, and \n"
-                                        "Lex, based on the Instruction Set Architecture (ISA) of the Educational Stack \n"
-                                        "Machine x16 (ESMx16). Its main purpose is to facilitate the learning and teaching \n"
+                                        "Lex, based on the Instruction Set Architecture (ISA) of the Educational Simplified \n"
+                                        "Machine (ESM). Its main purpose is to facilitate the learning and teaching \n"
                                         "of assembly language programming by providing an interactive and intuitive \n"
                                         "environment for the development, testing, and translation of assembly code. This \n"
                                         "simulator has been specifically designed for academic use in the Computer \n"

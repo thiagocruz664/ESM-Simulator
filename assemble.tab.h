@@ -70,7 +70,10 @@ extern int yydebug;
     NUMERO = 271,                  /* NUMERO  */
     HEXA = 272,                    /* HEXA  */
     ERROR_NUMERO = 273,            /* ERROR_NUMERO  */
-    INVALIDO = 274                 /* INVALIDO  */
+    INVALIDO = 274,                /* INVALIDO  */
+    IN = 275,                      /* IN  */
+    OUT = 276,                     /* OUT  */
+    HALT = 277                     /* HALT  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -84,7 +87,7 @@ union YYSTYPE
 	int intval;
 	char *str;
 
-#line 88 "assemble.tab.h"
+#line 91 "assemble.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

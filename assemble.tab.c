@@ -375,16 +375,19 @@ enum yysymbol_kind_t
   YYSYMBOL_HEXA = 17,                      /* HEXA  */
   YYSYMBOL_ERROR_NUMERO = 18,              /* ERROR_NUMERO  */
   YYSYMBOL_INVALIDO = 19,                  /* INVALIDO  */
-  YYSYMBOL_20_n_ = 20,                     /* '\n'  */
-  YYSYMBOL_21_ = 21,                       /* '.'  */
-  YYSYMBOL_YYACCEPT = 22,                  /* $accept  */
-  YYSYMBOL_prog = 23,                      /* prog  */
-  YYSYMBOL_intrucciones = 24,              /* intrucciones  */
-  YYSYMBOL_reservas = 25,                  /* reservas  */
-  YYSYMBOL_dato = 26,                      /* dato  */
-  YYSYMBOL_datoBR = 27,                    /* datoBR  */
-  YYSYMBOL_direccion = 28,                 /* direccion  */
-  YYSYMBOL_direccionBR = 29                /* direccionBR  */
+  YYSYMBOL_IN = 20,                        /* IN  */
+  YYSYMBOL_OUT = 21,                       /* OUT  */
+  YYSYMBOL_HALT = 22,                      /* HALT  */
+  YYSYMBOL_23_n_ = 23,                     /* '\n'  */
+  YYSYMBOL_24_ = 24,                       /* '.'  */
+  YYSYMBOL_YYACCEPT = 25,                  /* $accept  */
+  YYSYMBOL_prog = 26,                      /* prog  */
+  YYSYMBOL_intrucciones = 27,              /* intrucciones  */
+  YYSYMBOL_reservas = 28,                  /* reservas  */
+  YYSYMBOL_dato = 29,                      /* dato  */
+  YYSYMBOL_datoBR = 30,                    /* datoBR  */
+  YYSYMBOL_direccion = 31,                 /* direccion  */
+  YYSYMBOL_direccionBR = 32                /* direccionBR  */
 };
 typedef enum yysymbol_kind_t yysymbol_kind_t;
 
@@ -712,19 +715,19 @@ union yyalloc
 /* YYFINAL -- State number of the termination state.  */
 #define YYFINAL  2
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   89
+#define YYLAST   86
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  22
+#define YYNTOKENS  25
 /* YYNNTS -- Number of nonterminals.  */
 #define YYNNTS  8
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  42
+#define YYNRULES  45
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  59
+#define YYNSTATES  62
 
 /* YYMAXUTOK -- Last valid token kind.  */
-#define YYMAXUTOK   274
+#define YYMAXUTOK   277
 
 
 /* YYTRANSLATE(TOKEN-NUM) -- Symbol number corresponding to TOKEN-NUM
@@ -739,10 +742,10 @@ union yyalloc
 static const yytype_int8 yytranslate[] =
 {
        0,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-      20,     2,     2,     2,     2,     2,     2,     2,     2,     2,
+      23,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,    21,     2,     2,     2,
+       2,     2,     2,     2,     2,     2,    24,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
@@ -765,7 +768,7 @@ static const yytype_int8 yytranslate[] =
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     1,     2,     3,     4,
        5,     6,     7,     8,     9,    10,    11,    12,    13,    14,
-      15,    16,    17,    18,    19
+      15,    16,    17,    18,    19,    20,    21,    22
 };
 
 #if YYDEBUG
@@ -775,8 +778,8 @@ static const yytype_int16 yyrline[] =
        0,   293,   293,   294,   297,   303,   304,   312,   319,   325,
      328,   334,   339,   342,   347,   350,   356,   359,   366,   373,
      376,   383,   389,   392,   398,   404,   407,   410,   429,   432,
-     437,   441,   445,   452,   457,   464,   475,   480,   491,   498,
-     507,   518,   535
+     436,   440,   445,   452,   456,   460,   467,   472,   479,   490,
+     495,   506,   513,   522,   533,   550
 };
 #endif
 
@@ -794,9 +797,9 @@ static const char *const yytname[] =
 {
   "\"end of file\"", "error", "\"invalid token\"", "ADD", "AND", "NOTA",
   "NOTB", "LD", "ST", "BR_FLAGS", "TRAP", "END", "ORIG", "FILL", "BLKW",
-  "ETIQUETA", "NUMERO", "HEXA", "ERROR_NUMERO", "INVALIDO", "'\\n'", "'.'",
-  "$accept", "prog", "intrucciones", "reservas", "dato", "datoBR",
-  "direccion", "direccionBR", YY_NULLPTR
+  "ETIQUETA", "NUMERO", "HEXA", "ERROR_NUMERO", "INVALIDO", "IN", "OUT",
+  "HALT", "'\\n'", "'.'", "$accept", "prog", "intrucciones", "reservas",
+  "dato", "datoBR", "direccion", "direccionBR", YY_NULLPTR
 };
 
 static const char *
@@ -806,7 +809,7 @@ yysymbol_name (yysymbol_kind_t yysymbol)
 }
 #endif
 
-#define YYPACT_NINF (-14)
+#define YYPACT_NINF (-17)
 
 #define yypact_value_is_default(Yyn) \
   ((Yyn) == YYPACT_NINF)
@@ -820,12 +823,13 @@ yysymbol_name (yysymbol_kind_t yysymbol)
    STATE-NUM.  */
 static const yytype_int8 yypact[] =
 {
-     -14,     5,   -14,   -14,    34,    40,    58,     1,    45,    52,
-      21,    63,    24,   -14,     7,   -13,    -4,   -14,   -14,   -14,
-     -14,   -14,   -14,   -14,   -14,   -14,   -14,   -14,   -14,   -14,
-     -14,   -14,   -14,   -14,   -14,   -14,   -14,   -14,   -14,   -14,
-     -14,    22,   -14,   -14,   -14,   -14,    75,    23,   -14,     0,
-     -14,   -14,   -14,    26,   -14,   -14,   -14,   -14,   -14
+     -17,     5,   -17,   -17,     1,    42,    60,     0,    48,    54,
+      29,    61,    32,   -17,   -17,   -17,   -17,    10,   -16,    44,
+     -17,   -17,   -17,   -17,   -17,   -17,   -17,   -17,   -17,   -17,
+     -17,   -17,   -17,   -17,   -17,   -17,   -17,   -17,   -17,   -17,
+     -17,   -17,   -17,   -17,    27,   -17,   -17,   -17,   -17,    18,
+      45,   -17,    33,   -17,   -17,   -17,    68,   -17,   -17,   -17,
+     -17,   -17
 };
 
 /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -834,23 +838,24 @@ static const yytype_int8 yypact[] =
 static const yytype_int8 yydefact[] =
 {
        2,     0,     1,    29,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,     6,     0,     0,     0,     9,    40,    35,
-      39,    36,     7,     8,    12,    10,    11,    14,    13,    16,
-      19,    18,    17,    22,    21,    20,    25,    42,    37,    41,
-      38,     0,    23,    24,    28,    27,     0,     0,    32,     0,
-       3,     5,    26,     0,    34,     4,    31,    30,    33
+       0,     0,     0,     6,    30,    31,    32,     0,     0,     0,
+       9,    43,    38,    42,    39,     7,     8,    12,    10,    11,
+      14,    13,    16,    19,    18,    17,    22,    21,    20,    25,
+      45,    40,    44,    41,     0,    23,    24,    28,    27,     0,
+       0,    35,     0,     3,     5,    26,     0,    37,     4,    34,
+      33,    36
 };
 
 /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int8 yypgoto[] =
 {
-     -14,   -14,    35,   -14,    -5,   -14,    76,   -14
+     -17,   -17,    62,   -17,    -5,   -17,    74,   -17
 };
 
 /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int8 yydefgoto[] =
 {
-       0,     1,    15,    16,    22,    42,    23,    43
+       0,     1,    18,    19,    25,    45,    26,    46
 };
 
 /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -858,50 +863,51 @@ static const yytype_int8 yydefgoto[] =
    number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int8 yytable[] =
 {
-      25,    56,    29,    31,    34,     2,     3,    50,     4,     5,
-       6,     7,     8,     9,    10,    11,    51,    57,    48,    49,
-      12,   -15,    36,    52,    13,     3,    14,     4,     5,     6,
-       7,     8,     9,    10,    11,    17,    37,    38,    39,    40,
-      41,    24,    19,    55,    21,    46,    30,    47,    58,    18,
-      19,    20,    21,    33,     0,    18,    19,    20,    21,    27,
-      18,    19,    20,    21,    44,     0,     0,    18,    19,    20,
-      21,     0,     0,    18,     0,    20,     0,     0,    18,     0,
-      20,    26,    28,     0,    32,    35,     0,    45,    53,    54
+      28,    32,    20,    34,    37,     2,     3,    53,     4,     5,
+       6,     7,     8,     9,    10,    11,    21,    22,    23,    24,
+      12,    51,    52,   -15,    13,    14,    15,    16,    55,    17,
+      39,    56,    57,     3,    59,     4,     5,     6,     7,     8,
+       9,    10,    11,    27,    40,    41,    42,    43,    44,    33,
+      60,    61,    14,    15,    16,    36,    49,    21,    22,    23,
+      24,    30,    47,    21,    22,    23,    24,    54,    58,    21,
+      22,    23,    24,     0,    50,    21,    21,    23,    23,    29,
+      31,     0,    35,    38,    22,    48,    24
 };
 
 static const yytype_int8 yycheck[] =
 {
-       5,     1,     1,     8,     9,     0,     1,    20,     3,     4,
-       5,     6,     7,     8,     9,    10,    20,    17,    11,    12,
-      15,    20,     1,     1,    19,     1,    21,     3,     4,     5,
-       6,     7,     8,     9,    10,     1,    15,    16,    17,    18,
-      19,     1,    16,    20,    18,    21,     1,    12,    53,    15,
-      16,    17,    18,     1,    -1,    15,    16,    17,    18,     1,
-      15,    16,    17,    18,     1,    -1,    -1,    15,    16,    17,
-      18,    -1,    -1,    15,    -1,    17,    -1,    -1,    15,    -1,
-      17,     5,     6,    -1,     8,     9,    -1,    11,    13,    14
+       5,     1,     1,     8,     9,     0,     1,    23,     3,     4,
+       5,     6,     7,     8,     9,    10,    15,    16,    17,    18,
+      15,    11,    12,    23,    19,    20,    21,    22,     1,    24,
+       1,    13,    14,     1,     1,     3,     4,     5,     6,     7,
+       8,     9,    10,     1,    15,    16,    17,    18,    19,     1,
+      17,    56,    20,    21,    22,     1,    24,    15,    16,    17,
+      18,     1,     1,    15,    16,    17,    18,    23,    23,    15,
+      16,    17,    18,    -1,    12,    15,    15,    17,    17,     5,
+       6,    -1,     8,     9,    16,    11,    18
 };
 
 /* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
    state STATE-NUM.  */
 static const yytype_int8 yystos[] =
 {
-       0,    23,     0,     1,     3,     4,     5,     6,     7,     8,
-       9,    10,    15,    19,    21,    24,    25,     1,    15,    16,
-      17,    18,    26,    28,     1,    26,    28,     1,    28,     1,
-       1,    26,    28,     1,    26,    28,     1,    15,    16,    17,
-      18,    19,    27,    29,     1,    28,    21,    24,    11,    12,
-      20,    20,     1,    13,    14,    20,     1,    17,    26
+       0,    26,     0,     1,     3,     4,     5,     6,     7,     8,
+       9,    10,    15,    19,    20,    21,    22,    24,    27,    28,
+       1,    15,    16,    17,    18,    29,    31,     1,    29,    31,
+       1,    31,     1,     1,    29,    31,     1,    29,    31,     1,
+      15,    16,    17,    18,    19,    30,    32,     1,    31,    24,
+      27,    11,    12,    23,    23,     1,    13,    14,    23,     1,
+      17,    29
 };
 
 /* YYR1[RULE-NUM] -- Symbol kind of the left-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr1[] =
 {
-       0,    22,    23,    23,    23,    23,    23,    24,    24,    24,
-      24,    24,    24,    24,    24,    24,    24,    24,    24,    24,
-      24,    24,    24,    24,    24,    24,    24,    24,    24,    24,
-      25,    25,    25,    25,    25,    26,    26,    27,    27,    28,
-      28,    29,    29
+       0,    25,    26,    26,    26,    26,    26,    27,    27,    27,
+      27,    27,    27,    27,    27,    27,    27,    27,    27,    27,
+      27,    27,    27,    27,    27,    27,    27,    27,    27,    27,
+      27,    27,    27,    28,    28,    28,    28,    28,    29,    29,
+      30,    30,    31,    31,    32,    32
 };
 
 /* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
@@ -910,8 +916,8 @@ static const yytype_int8 yyr2[] =
        0,     2,     0,     3,     4,     3,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     1,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     3,     2,     2,     1,
-       3,     3,     2,     4,     3,     1,     1,     1,     1,     1,
-       1,     1,     1
+       1,     1,     1,     3,     3,     2,     4,     3,     1,     1,
+       1,     1,     1,     1,     1,     1
 };
 
 
@@ -1379,7 +1385,7 @@ yyreduce:
                                   {printf("\n");
 		//ACA SAQUE EL IF Y EL GETCHAR
 	}
-#line 1383 "assemble.tab.c"
+#line 1389 "assemble.tab.c"
     break;
 
   case 4: /* prog: prog ETIQUETA intrucciones '\n'  */
@@ -1390,13 +1396,13 @@ yyreduce:
 		contador_matriz_etiquets++;
 		}
 	}
-#line 1394 "assemble.tab.c"
+#line 1400 "assemble.tab.c"
     break;
 
   case 5: /* prog: prog reservas '\n'  */
 #line 303 "assemble.y"
                                    {}
-#line 1400 "assemble.tab.c"
+#line 1406 "assemble.tab.c"
     break;
 
   case 6: /* prog: prog INVALIDO  */
@@ -1406,7 +1412,7 @@ yyreduce:
 			errores= 315;
 		}
 	}
-#line 1410 "assemble.tab.c"
+#line 1416 "assemble.tab.c"
     break;
 
   case 7: /* intrucciones: ADD dato  */
@@ -1418,7 +1424,7 @@ yyreduce:
 		acumulador = overflow(acumulador);
 		}
 	}
-#line 1422 "assemble.tab.c"
+#line 1428 "assemble.tab.c"
     break;
 
   case 8: /* intrucciones: ADD direccion  */
@@ -1429,7 +1435,7 @@ yyreduce:
 		printf("REGISTRO: %i\n",acumulador);
 		acumulador = overflow(acumulador);
 	}}
-#line 1433 "assemble.tab.c"
+#line 1439 "assemble.tab.c"
     break;
 
   case 9: /* intrucciones: ADD error  */
@@ -1437,7 +1443,7 @@ yyreduce:
                                                         {if(pre==1){
 			errores= 300;
 	}}
-#line 1441 "assemble.tab.c"
+#line 1447 "assemble.tab.c"
     break;
 
   case 10: /* intrucciones: AND dato  */
@@ -1448,7 +1454,7 @@ yyreduce:
 		printf("REGISTRO: %i\n",acumulador);
 	}
 	}
-#line 1452 "assemble.tab.c"
+#line 1458 "assemble.tab.c"
     break;
 
   case 11: /* intrucciones: AND direccion  */
@@ -1458,7 +1464,7 @@ yyreduce:
 		nzpeador();
 		printf("REGISTRO: %i\n",acumulador);
 	}}
-#line 1462 "assemble.tab.c"
+#line 1468 "assemble.tab.c"
     break;
 
   case 12: /* intrucciones: AND error  */
@@ -1466,7 +1472,7 @@ yyreduce:
                                                         {if(pre==1){
 			errores= 300;
 	}}
-#line 1470 "assemble.tab.c"
+#line 1476 "assemble.tab.c"
     break;
 
   case 13: /* intrucciones: NOTA direccion  */
@@ -1476,7 +1482,7 @@ yyreduce:
 		nzpeador();
 		printf("REGISTRO: %i\n",acumulador);
 	}}
-#line 1480 "assemble.tab.c"
+#line 1486 "assemble.tab.c"
     break;
 
   case 14: /* intrucciones: NOTA error  */
@@ -1484,7 +1490,7 @@ yyreduce:
                                                         {if(pre==1){
 			errores= 303;
 	}}
-#line 1488 "assemble.tab.c"
+#line 1494 "assemble.tab.c"
     break;
 
   case 15: /* intrucciones: NOTB  */
@@ -1495,7 +1501,7 @@ yyreduce:
 		printf("REGISTRO: %i\n",acumulador);
 
 	}}
-#line 1499 "assemble.tab.c"
+#line 1505 "assemble.tab.c"
     break;
 
   case 16: /* intrucciones: NOTB error  */
@@ -1503,7 +1509,7 @@ yyreduce:
                                                         {if(pre==1){
 				errores= 301;
 	}}
-#line 1507 "assemble.tab.c"
+#line 1513 "assemble.tab.c"
     break;
 
   case 17: /* intrucciones: LD direccion  */
@@ -1515,7 +1521,7 @@ yyreduce:
 			printf("REGISTRO: %i\n",acumulador);
 		}
 	}
-#line 1519 "assemble.tab.c"
+#line 1525 "assemble.tab.c"
     break;
 
   case 18: /* intrucciones: LD dato  */
@@ -1527,7 +1533,7 @@ yyreduce:
 			printf("REGISTRO: %i\n",acumulador);
 		}
 	}
-#line 1531 "assemble.tab.c"
+#line 1537 "assemble.tab.c"
     break;
 
   case 19: /* intrucciones: LD error  */
@@ -1535,7 +1541,7 @@ yyreduce:
                                                         {if(pre==1){
 				errores= 300;
 	}}
-#line 1539 "assemble.tab.c"
+#line 1545 "assemble.tab.c"
     break;
 
   case 20: /* intrucciones: ST direccion  */
@@ -1547,7 +1553,7 @@ yyreduce:
 		}
 		
 	}
-#line 1551 "assemble.tab.c"
+#line 1557 "assemble.tab.c"
     break;
 
   case 21: /* intrucciones: ST dato  */
@@ -1558,7 +1564,7 @@ yyreduce:
 			dato[pc+1+A] = acumulador;
 		}
 	}
-#line 1562 "assemble.tab.c"
+#line 1568 "assemble.tab.c"
     break;
 
   case 22: /* intrucciones: ST error  */
@@ -1566,7 +1572,7 @@ yyreduce:
                                                         {if(pre==1){
 				errores= 300;
 	}}
-#line 1570 "assemble.tab.c"
+#line 1576 "assemble.tab.c"
     break;
 
   case 23: /* intrucciones: BR_FLAGS datoBR  */
@@ -1577,7 +1583,7 @@ yyreduce:
 				banderaParaBranch=1;
 		}
 	}}
-#line 1581 "assemble.tab.c"
+#line 1587 "assemble.tab.c"
     break;
 
   case 24: /* intrucciones: BR_FLAGS direccionBR  */
@@ -1588,7 +1594,7 @@ yyreduce:
 			banderaParaBranch=1;
 		}
 	}}
-#line 1592 "assemble.tab.c"
+#line 1598 "assemble.tab.c"
     break;
 
   case 25: /* intrucciones: BR_FLAGS error  */
@@ -1596,7 +1602,7 @@ yyreduce:
                                                         {if(pre==1){
 			errores= 300;
 	}}
-#line 1600 "assemble.tab.c"
+#line 1606 "assemble.tab.c"
     break;
 
   case 26: /* intrucciones: BR_FLAGS INVALIDO error  */
@@ -1604,7 +1610,7 @@ yyreduce:
                                                                 {if(pre==1){
 			errores= 300;
 	}}
-#line 1608 "assemble.tab.c"
+#line 1614 "assemble.tab.c"
     break;
 
   case 27: /* intrucciones: TRAP direccion  */
@@ -1628,7 +1634,7 @@ yyreduce:
 					errores= 310;
 			}
 		}}
-#line 1632 "assemble.tab.c"
+#line 1638 "assemble.tab.c"
     break;
 
   case 28: /* intrucciones: TRAP error  */
@@ -1636,7 +1642,7 @@ yyreduce:
                                                         {if(pre==1){
 				errores= 310;
 	}}
-#line 1640 "assemble.tab.c"
+#line 1646 "assemble.tab.c"
     break;
 
   case 29: /* intrucciones: error  */
@@ -1644,29 +1650,59 @@ yyreduce:
                         {if(pre==1){
 				errores= 315;
 	}}
-#line 1648 "assemble.tab.c"
+#line 1654 "assemble.tab.c"
     break;
 
-  case 30: /* reservas: '.' ORIG HEXA  */
-#line 437 "assemble.y"
+  case 30: /* intrucciones: IN  */
+#line 436 "assemble.y"
+                                   {if(pre==0){
+		//ESTO ES TRAP 23 -> IN
+		banderaParaTrapDeEntrada = 1;
+	}}
+#line 1663 "assemble.tab.c"
+    break;
+
+  case 31: /* intrucciones: OUT  */
+#line 440 "assemble.y"
+                                                        {if(pre==0){
+		//ESTO ES TRAP 21 -> OUT
+		printf("\n%c\n",acumulador);
+		banderaParaTrapDeSalida=1;
+	}}
+#line 1673 "assemble.tab.c"
+    break;
+
+  case 32: /* intrucciones: HALT  */
+#line 445 "assemble.y"
+                                                        {if(pre==1){
+		//LIKE Y SUSCRIBETE
+		}else{
+		fin= 7;
+			errores = 1;
+	}}
+#line 1684 "assemble.tab.c"
+    break;
+
+  case 33: /* reservas: '.' ORIG HEXA  */
+#line 452 "assemble.y"
                                    {if(pre==1){
 		nofinoseainicio = 0;
 		origen=strtol((yyvsp[0].str)+1, '\0',16);
 	}}
-#line 1657 "assemble.tab.c"
+#line 1693 "assemble.tab.c"
     break;
 
-  case 31: /* reservas: '.' ORIG error  */
-#line 441 "assemble.y"
+  case 34: /* reservas: '.' ORIG error  */
+#line 456 "assemble.y"
                                     {if(pre==1){
         	errores= 311;
 		}
 		}
-#line 1666 "assemble.tab.c"
+#line 1702 "assemble.tab.c"
     break;
 
-  case 32: /* reservas: '.' END  */
-#line 445 "assemble.y"
+  case 35: /* reservas: '.' END  */
+#line 460 "assemble.y"
                                         {if(pre==1){
 		fin= 7; //tengo tiempo, para saber
 		}else{
@@ -1674,31 +1710,31 @@ yyreduce:
 			errores = 1;
 	}
 	}
-#line 1678 "assemble.tab.c"
+#line 1714 "assemble.tab.c"
     break;
 
-  case 33: /* reservas: ETIQUETA '.' FILL dato  */
-#line 452 "assemble.y"
+  case 36: /* reservas: ETIQUETA '.' FILL dato  */
+#line 467 "assemble.y"
                                         {if(pre==1){
 		matriz_etiquetas_k[contador_matriz_etiquets]=(yyvsp[-3].str);
 		matriz_etiquetas_d[contador_matriz_etiquets]=pc;
 		contador_matriz_etiquets++;
 	}}
-#line 1688 "assemble.tab.c"
+#line 1724 "assemble.tab.c"
     break;
 
-  case 34: /* reservas: ETIQUETA '.' BLKW  */
-#line 457 "assemble.y"
+  case 37: /* reservas: ETIQUETA '.' BLKW  */
+#line 472 "assemble.y"
                                                  {if(pre==1){
 		matriz_etiquetas_k[contador_matriz_etiquets]=(yyvsp[-2].str);
 		matriz_etiquetas_d[contador_matriz_etiquets]=pc;
 		contador_matriz_etiquets++;
 	}}
-#line 1698 "assemble.tab.c"
+#line 1734 "assemble.tab.c"
     break;
 
-  case 35: /* dato: NUMERO  */
-#line 464 "assemble.y"
+  case 38: /* dato: NUMERO  */
+#line 479 "assemble.y"
                {
         if(pre==0) {
             A = atoi((yyvsp[0].str)+1);
@@ -1710,19 +1746,19 @@ yyreduce:
             }
         }
     }
-#line 1714 "assemble.tab.c"
+#line 1750 "assemble.tab.c"
     break;
 
-  case 36: /* dato: ERROR_NUMERO  */
-#line 475 "assemble.y"
+  case 39: /* dato: ERROR_NUMERO  */
+#line 490 "assemble.y"
                    {
         	errores= 312;
     }
-#line 1722 "assemble.tab.c"
+#line 1758 "assemble.tab.c"
     break;
 
-  case 37: /* datoBR: NUMERO  */
-#line 480 "assemble.y"
+  case 40: /* datoBR: NUMERO  */
+#line 495 "assemble.y"
                {
         if(pre==0) {
             A = atoi((yyvsp[0].str)+1);
@@ -1734,19 +1770,19 @@ yyreduce:
             }
         }
     }
-#line 1738 "assemble.tab.c"
+#line 1774 "assemble.tab.c"
     break;
 
-  case 38: /* datoBR: ERROR_NUMERO  */
-#line 491 "assemble.y"
+  case 41: /* datoBR: ERROR_NUMERO  */
+#line 506 "assemble.y"
                    {
         	errores= 312;
     }
-#line 1746 "assemble.tab.c"
+#line 1782 "assemble.tab.c"
     break;
 
-  case 39: /* direccion: HEXA  */
-#line 498 "assemble.y"
+  case 42: /* direccion: HEXA  */
+#line 513 "assemble.y"
                                   {
 		if(pre==1){direccionador=strtol((yyvsp[0].str)+1, '\0',16);
 		if (direccionador>65536 || direccionador<0) { // agregue || direccionador<0
@@ -1756,11 +1792,11 @@ yyreduce:
 		if(pre==0){direccionador=strtol((yyvsp[0].str)+1, '\0',16);}
 		
 	}
-#line 1760 "assemble.tab.c"
+#line 1796 "assemble.tab.c"
     break;
 
-  case 40: /* direccion: ETIQUETA  */
-#line 507 "assemble.y"
+  case 43: /* direccion: ETIQUETA  */
+#line 522 "assemble.y"
                                        {
 		if(pre==0){
 			direccionador = buscarDireccionEtiqueta((yyvsp[0].str));
@@ -1770,11 +1806,11 @@ yyreduce:
 			}
 		}
 	}
-#line 1774 "assemble.tab.c"
+#line 1810 "assemble.tab.c"
     break;
 
-  case 41: /* direccionBR: HEXA  */
-#line 518 "assemble.y"
+  case 44: /* direccionBR: HEXA  */
+#line 533 "assemble.y"
                                   {
 		if(pre==1){direccionador=strtol((yyvsp[0].str)+1, '\0',16);
 		
@@ -1792,11 +1828,11 @@ yyreduce:
 		if(pre==0){direccionador=strtol((yyvsp[0].str)+1, '\0',16);}
 		
 	}
-#line 1796 "assemble.tab.c"
+#line 1832 "assemble.tab.c"
     break;
 
-  case 42: /* direccionBR: ETIQUETA  */
-#line 535 "assemble.y"
+  case 45: /* direccionBR: ETIQUETA  */
+#line 550 "assemble.y"
                                        {
 		if(pre==0){
 			direccionador = buscarDireccionEtiqueta((yyvsp[0].str));
@@ -1806,11 +1842,11 @@ yyreduce:
 			}
 		}
 	}
-#line 1810 "assemble.tab.c"
+#line 1846 "assemble.tab.c"
     break;
 
 
-#line 1814 "assemble.tab.c"
+#line 1850 "assemble.tab.c"
 
       default: break;
     }
@@ -2003,7 +2039,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 544 "assemble.y"
+#line 559 "assemble.y"
 
 	
 	void yyerror(const char *msje) {

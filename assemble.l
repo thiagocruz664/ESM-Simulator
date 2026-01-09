@@ -38,6 +38,8 @@ minusculas  [a-z]
 "NOTB"      { return NOTB; }
 "LD"        { return LD; }
 "ST"        { return ST; }
+
+
 "BR"{flags}        {{ 
     char* temp = strdup(yytext+2);  // Saltar "br"
     yylval = temp; 
@@ -48,7 +50,14 @@ minusculas  [a-z]
     yylval = temp; 
     return BR_FLAGS; 
 }}
+
+
 "TRAP"      { return TRAP; }
+"IN"        { return IN; }
+"OUT"       { return OUT; }
+"HALT"      { return HALT; }
+
+
 "END"       { return END; }
 "ORIG"      { return ORIG; }
 "FILL"      { return FILL; }

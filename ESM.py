@@ -844,7 +844,7 @@ def assembly():
     try:
         if e >= 0:
             error(e)
-            log(f"Error en el assembly {e}")
+            log(f"Error en el assembly ESTE MIO {e}")
         else:
             with open(temp_file_path, 'r', encoding='utf-8') as temp_file:
                 if e == -2:
@@ -943,6 +943,10 @@ def assembly():
                             imm12 = imm12.replace("\n","")                        
                             c_string = ctypes.c_char_p(imm12.encode('utf-8'))
                             dir_etiq_int = lib.buscarDireccionEtiqueta(c_string)
+                            if(dir_etiq_int==-1):
+                                e=314
+                                error(e)
+                                break
                             binario = offset_direccion(dir_etiq_int,binario,pc)
                     case "AND":
                         imm12 = linea.split(" ")[1]
@@ -964,6 +968,10 @@ def assembly():
                             imm12 = imm12.replace("\n","")                        
                             c_string = ctypes.c_char_p(imm12.encode('utf-8'))
                             dir_etiq_int = lib.buscarDireccionEtiqueta(c_string)
+                            if(dir_etiq_int==-1):
+                                e=314
+                                error(e)
+                                break
                             binario = offset_direccion(dir_etiq_int,binario,pc)
                     case "NOTA":
                         imm12 = linea.split(" ")[1]
@@ -982,6 +990,10 @@ def assembly():
                             imm12 = imm12.replace("\n","")                        
                             c_string = ctypes.c_char_p(imm12.encode('utf-8'))
                             dir_etiq_int = lib.buscarDireccionEtiqueta(c_string)
+                            if(dir_etiq_int==-1):
+                                e=314
+                                error(e)
+                                break
                             binario = offset_direccion(dir_etiq_int,binario,pc)
                     case "NOTB":
                         binario = "0101000000000000"
@@ -1007,6 +1019,10 @@ def assembly():
                             imm12 = imm12.replace("\n","")                        
                             c_string = ctypes.c_char_p(imm12.encode('utf-8'))
                             dir_etiq_int = lib.buscarDireccionEtiqueta(c_string)
+                            if(dir_etiq_int==-1):
+                                e=314
+                                error(e)
+                                break
                             binario = offset_direccion(dir_etiq_int,binario,pc)
                     case "ST":
                         imm12 = linea.split(" ")[1]
@@ -1100,6 +1116,10 @@ def assembly():
                             imm12 = imm12.replace("\n","")                        
                             c_string = ctypes.c_char_p(imm12.encode('utf-8'))
                             dir_etiq_int = lib.buscarDireccionEtiqueta(c_string)
+                            if(dir_etiq_int==-1):
+                                e=314
+                                error(e)
+                                break
                             ###ERROR QUE LA ETIQUETA ESTE MAS LEJOS QUE EL PCoffset9
                             if(dir_etiq_int - (pc+1) > 511 or dir_etiq_int - (pc+1) < -512):
                                 if(65536-(dir_etiq_int-(pc+1)) > 512 and (dir_etiq_int-(pc+1))+65535 > 511):
@@ -1142,10 +1162,19 @@ def assembly():
                         if imm12 == "x21":
                             binario = binario + "0000000100001"
                         elif imm12 == "x23":
-                            binario = binario + "0000000100011"                 
+                            binario = binario + "0000000100011"
+
+                    case "IN":
+                        binario = "1110000000010101"       
+
+                    case "OUT":
+                        binario = "1110000000010111"   
+
+                    case "HALT":
+                        binario = "1110000000010100"  
                     case _:
                         binario = "0000000000000000"
-                if(binario!=319):
+                if(binario!=319): #muuuuyiportante
                     try:
                         log(f"Este es el binario que estoy intentando traducir: {binario}")
                         decimal = int(binario, 2)
@@ -1155,7 +1184,7 @@ def assembly():
                         if(dir_etiq_int==-1):
                             e=314
                             error(e)
-                            log(f"Error en el assembly {e}")
+                            log(f"Error en el assembly ZONA FEA {e}")
                             break
                 else:
                     break
@@ -1210,7 +1239,7 @@ def assembly():
         log(f"PC: {c_pc}    Acumulador: {c_acumulador}    ALUFlags: {c_status}")
     else:
         error(e)
-        log(f"Error en el assembly {e}")
+        log(f"Error en el assembly ESTE TUYO{e}")
 def stepin():
     global lang,ab,tib,contador_branch, runer2
     iteracionesMaximas = 200
@@ -1314,6 +1343,16 @@ def stepin():
                 if(tib==1):
                     consola_capture()
                     c_status = (ctypes.c_char_p).in_dll(lib, "ALUFlags")
+                    # Forzar a 16 bits
+                    acum16 = acumulador & 0xFFFF  
+
+                    # Interpretar como com2
+                    if acum16 & 0x8000:
+                        acum_signed = acum16 - 0x10000
+                    else:
+                        acum_signed = acum16
+                    data_view.actualizar(acum_signed,status,format(pc,'04x'))
+
                 elif(tob==1):
                     if (lang=="es"):
                         c_acumulador = (ctypes.c_int).in_dll(lib, "acumulador")
@@ -1330,21 +1369,21 @@ def stepin():
                     lib.bandera_check()
                     c_origen = (ctypes.c_int).in_dll(lib, "origen")
                     memoria.mapear_memoria(diccionario,c_origen.value,pc)
-                else:
-                    c_origen = (ctypes.c_int).in_dll(lib, "origen")
-                    # Forzar a 16 bits
-                    acum16 = acumulador & 0xFFFF  
+                
+                c_origen = (ctypes.c_int).in_dll(lib, "origen")
+                # Forzar a 16 bits
+                acum16 = acumulador & 0xFFFF  
 
-                    # Interpretar como com2
-                    if acum16 & 0x8000:
-                        acum_signed = acum16 - 0x10000
-                    else:
-                        acum_signed = acum16
-                    data_view.actualizar(acum_signed,status,format(pc,'04x'))
-                    if pc in memoria.breakpoints:
-                        runer2 = False
-                        log(f"BREAKPOINT {runer2}")
-                    memoria.mapear_memoria(diccionario,c_origen.value,pc)
+                # Interpretar como com2
+                if acum16 & 0x8000:
+                    acum_signed = acum16 - 0x10000
+                else:
+                    acum_signed = acum16
+                data_view.actualizar(acum_signed,status,format(pc,'04x'))
+                if pc in memoria.breakpoints:
+                    runer2 = False
+                    log(f"BREAKPOINT {runer2}")
+                memoria.mapear_memoria(diccionario,c_origen.value,pc)
             else:
                 error(s)
                 log(f"Error en el stepin {s}")
@@ -1502,6 +1541,11 @@ ventana.minsize(1140,680)
 ventana.resizable(True, True)
 ventana.grid_rowconfigure(1, weight=1)
 ventana.grid_columnconfigure(1, weight=1)
+
+#esto dice que es para windows, borrar si no es necesario
+ventana.deiconify()
+ventana.lift()
+ventana.focus_force()
 
 zoom_value = 100 #aca ya fue todo y pongo el zoom inicial donde quiero
 

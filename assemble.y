@@ -280,7 +280,7 @@ char* get_etiq(int pc_line){
 	char *str;
 }
 
-%token <str> ADD AND NOTA NOTB LD ST BR_FLAGS TRAP END ORIG FILL BLKW ETIQUETA NUMERO HEXA ERROR_NUMERO INVALIDO
+%token <str> ADD AND NOTA NOTB LD ST BR_FLAGS TRAP END ORIG FILL BLKW ETIQUETA NUMERO HEXA ERROR_NUMERO INVALIDO IN OUT HALT
 	
 	%type <str> intrucciones
 	%type <str> reservas
@@ -432,7 +432,22 @@ intrucciones:
 	|	error	{if(pre==1){
 				errores= 315;
 	}}
-
+	//MNEMONICOS ESPECIALES DE INTERRUPCION
+	|   IN                     {if(pre==0){
+		//ESTO ES TRAP 23 -> IN
+		banderaParaTrapDeEntrada = 1;
+	}}
+	|	OUT					{if(pre==0){
+		//ESTO ES TRAP 21 -> OUT
+		printf("\n%c\n",acumulador);
+		banderaParaTrapDeSalida=1;
+	}}
+	|	HALT					{if(pre==1){
+		//LIKE Y SUSCRIBETE
+		}else{
+		fin= 7;
+			errores = 1;
+	}}
 reservas:
 	'.' ORIG HEXA              {if(pre==1){
 		nofinoseainicio = 0;

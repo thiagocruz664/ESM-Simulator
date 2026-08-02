@@ -16,7 +16,6 @@
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import tkinter as tk
-from tkinter import font
 import webbrowser
 
 class Informacion:
@@ -93,7 +92,7 @@ class Informacion:
         self.frame_info.grid_columnconfigure(1, weight=1)
         self.frame_info.grid_columnconfigure(2, weight=1)
 
-    def on_frame_configure(self, event):
+    def on_frame_configure(self, _event):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         self.canvas.create_window(((self.ventana_tam/2)-15, 0), window=self.frame_info, anchor="n")
     def _on_mousewheel(self, event):
@@ -101,12 +100,11 @@ class Informacion:
             self.canvas.yview_scroll(-1, "units")
         elif event.num == 5 or event.delta < 0:
             self.canvas.yview_scroll(1, "units")
-
     def cargar_imagen(self, nombre_base):
         archivo = f"./img/{nombre_base}_O.png" if self.mode == "dark" else f"./img/{nombre_base}.png"
         try:
             return tk.PhotoImage(file=archivo)
-        except Exception as e:
+        except (FileNotFoundError, OSError, tk.TclError) as e:
             print(f"Error al cargar imagen: {archivo} → {e}")
             return None
 
@@ -224,7 +222,7 @@ class Informacion:
             self.parrafo2.tag_configure("info", font=("Times New Roman", 14, "bold"))
             self.parrafo2.tag_add("link", "9.0", tk.END)
             self.parrafo2.tag_configure("link", font=("Times New Roman", 12, "underline"))
-            self.parrafo2.tag_bind("link","<Button 1>",)
+            self.parrafo2.tag_bind("link", None, "<Button 1>",)
             self.parrafo2.config(state=tk.DISABLED)
 
             self.boton_cerrar.config(text="Cerrar")
@@ -304,7 +302,7 @@ class Informacion:
             self.boton_licencia.config(text="License")
             self.boton_idioma.config(text="Language")
 
-    def open_pdf(self,event):
+    def open_pdf(self,_event):
         webbrowser.open("https://drive.google.com/file/d/13sWqnlIF54dDIfUC_e0PlW9IuXdmEMA-/view?usp=sharing")
     def licencia(self):
         webbrowser.open("https://www.gnu.org/licenses/gpl-3.0.html")

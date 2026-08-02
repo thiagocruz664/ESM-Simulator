@@ -24,21 +24,17 @@
 #include "assemble.tab.h"
 int yylex(void);
 void yyerror(const char *s);
-
-	
-#define max_caracter 100
-#define tamMat 65536
-
-
 	
 //MAPA MEMORIA
+#define max_caracter 100
+#define tamMat 65536
 char map_memory[tamMat][max_caracter];
 int dato[tamMat];
-int acumulador, pc, pre, etiqueta_key, A,fin,nofinoseainicio,origen,datardo;
+int acumulador, pc, pre, etiqueta_key, A,fin,codigo_inicio,origen,datardo;
 
 //MAPA ETIQUETAS
-char *matriz_etiquetas_k[65536] ={0};
-int matriz_etiquetas_d[65536] = {0};
+char *matriz_etiquetas_k[tamMat] ={0};
+int matriz_etiquetas_d[tamMat] = {0};
 int contador_matriz_etiquets = 0;
 
 char* data, *ALUFlags="z";
@@ -52,38 +48,94 @@ int banderaParaBranch=0;
 int langyacc=1;
 int errores=0;
 FILE *stream;
-void set_input_from_memory(const char* linea,const char *line_path) {
-	// fclose(stream);
-   	// stream = fopen("./tempfile.tmp", "w+b");
-	if (stream) {
-        fclose(stream);
-    }
-	stream = fopen(line_path, "w+b");
-    if (!stream) {
-        perror("Error creando archivo temporal");
-        return;
-    }
-	
-    fwrite(linea, 1, strlen(linea), stream);
-    rewind(stream);
 
-    yyin = stream;
+//=========================================================================================================
+//========================================	FUNCIONES DE OPERACION ========================================
+void modificar_acumulador(int nuevo_valor){
+	//Actualiza el valor del acumulador
+	acumulador = nuevo_valor;
+	
+	//Evalua el dato actual del acumulador y setea los flags de la ALU en consecuencia
+	// Forzar a 16 bits
+    unsigned short acum16 = (unsigned short)(acumulador & 0xFFFF);
+
+    // Interpretar como 16 bits con signo
+    short acum_signed = (short)acum16;
+	if(acum_signed < 0){			ALUFlags = "n";
+		}else{
+			if(acum_signed == 0){	ALUFlags = "z";
+			}else{					ALUFlags = "p";}
+	}
+}
+
+int compararFlags(char *flagsIns){
+	//Utilizada para los BRANCHES, compara los flads de la ALU con los flags de la instruccion,
+	//si hay coincidencia devuelve 1, sino 0
+	for(int i=0; i<strlen(flagsIns);i++){
+		if(ALUFlags[0]==flagsIns[i]){
+			return 1;
+		}
+	}
+	return 0;
 }
 
 void bandera_check(){
+	//Resetea las banderas de trap y branch, para que no se queden activas en el proximo ciclo
 	banderaParaTrapDeEntrada=0;
 	banderaParaTrapDeSalida=0;
 	banderaParaBranch=0;
 }
 
 int overflow(int value) {
-	while (value > 32767) {
-		value -= 65536;
+	//En caso de que ocurra un overflow, este lo corrige, para que el valor quede en el rango de -32768 a 32767
+	while (value > 32767) { value -= 65536;
 	}
-	while (value < -32768) {
-		value += 65536;
+	while (value < -32768) { value += 65536;
 	}
 	return value;
+}
+//========================================	FIN FUNCIONES DE OPERACION ========================================
+//=============================================================================================================
+
+
+
+//=======================================================================================================
+//========================================	FUNCIONES DE MEMORIA ========================================
+void set_input_from_memory(const char* linea,const char *line_path) {
+	//Esta funcion se encarga de crear un archivo temporal con la linea de codigo que se le pasa 
+	//como parametro, para que el parser pueda leerlo
+
+	if (stream) {fclose(stream);}// Cierra el archivo temporal anterior si existe
+	
+	stream = fopen(line_path, "w+b");// Abre un archivo temporal en modo binario para escritura y lectura 
+	if (!stream) {
+        perror("Error creando archivo temporal");
+        return;
+    }
+    
+	fwrite(linea, 1, strlen(linea), stream);// Escribe la línea en el archivo temporal
+    rewind(stream);// Mueve el puntero del archivo al inicio para que pueda ser leído desde el principio
+
+	yyin = stream;// Asigna el archivo temporal a yyin para que el parser lo lea
+}
+
+char* get_line(int pc_line){
+	// Esta funcion devuelve la linea de codigo que se encuentra en la posicion de memoria indicada por pc_line
+  	char* line = (char*)malloc(100);
+  	strcpy(line, map_memory[pc_line]);
+  	return line;
+}
+
+char* get_etiq(int pc_line){
+	// Esta funcion devuelve la etiqueta que se encuentra en la posicion de memoria indicada por pc_line
+	char* etiq = (char*)malloc(100);
+	for (int i = 0; i < contador_matriz_etiquets; i++) {
+		if (matriz_etiquetas_d[i] == pc_line) {
+			strcpy(etiq, matriz_etiquetas_k[i]);
+			return etiq;
+		}
+	}
+	return NULL;
 }
 
 int buscarDireccionEtiqueta(char *etiqueta){
@@ -100,37 +152,6 @@ int buscarDato(char *etiqueta){
 	return dato[dir];
 }
 
-void nzpeador(){
-	// Forzar a 16 bits
-    unsigned short acum16 = (unsigned short)(acumulador & 0xFFFF);
-
-    // Interpretar como 16 bits con signo
-    short acum_signed = (short)acum16;
-	if(acum_signed<0){
-			ALUFlags = "n";
-		}else{
-			if(acum_signed==0){
-				ALUFlags = "z";
-			}else{
-				ALUFlags = "p";
-			}
-	}
-}
-
-void modificar_acumulador(int nuevo_valor){
-	acumulador = nuevo_valor;
-	nzpeador();
-}
-
-int compararFlags(char *flagsIns){
-	for(int i=0; i<strlen(flagsIns);i++){
-		if(ALUFlags[0]==flagsIns[i]){
-			return 1;
-		}
-	}
-	return 0;
-}
-
 void reemplazar_linea_st(char *nueva_linea, int pc_reemplazo){
 	strcpy(map_memory[pc_reemplazo], nueva_linea);
 }
@@ -139,8 +160,15 @@ void modificar_matriz_dato(int nuevo_dato, int pc_mod){
 	dato[pc_mod] = nuevo_dato;
 	printf("SE COLOCO EL DATO %i en la posicion %i\n",dato[pc_mod],pc_mod);
 }
+//========================================	FIN FUNCIONES DE MEMORIA ========================================
+//===========================================================================================================
 
+
+
+//========================================================================================================
+//========================================	FUNCIONES PRINCIPALES ========================================
 void reset() {
+	// Reinicia todas las variables y estructuras de datos a sus valores iniciales
     memset(map_memory, 0, sizeof(map_memory));
     memset(dato, 0, sizeof(dato));
     acumulador = 0;
@@ -149,10 +177,10 @@ void reset() {
     etiqueta_key = 0;
     A = 0;
     fin = 0;
-	nofinoseainicio = 7;
+	codigo_inicio = 7;
     origen = 0;
     datardo = 0;
-    for (int i = 0; i < 65536; i++) {
+    for (int i = 0; i < tamMat; i++) {
         matriz_etiquetas_k[i] = NULL; // Reiniciar punteros
         matriz_etiquetas_d[i] = 0; // Reiniciar enteros
     }
@@ -165,114 +193,133 @@ void reset() {
     banderaParaBranch = 0;
 }
 
-int assemble(int lang,const char *file_path,const char *line_path){
-	errores=0;
-	langyacc=lang;
-	reset();
-	FILE *archivo;
-	char linea[max_caracter];
-	archivo = fopen(file_path, "r");
-	if (archivo == NULL) {
-		errores= 100;
-		return errores;
-	}
-	pre=1;
-	if (lang == 10){
-		fgets(linea,sizeof(linea),archivo);
-		printf("LINEA: %s\n",linea);
-		set_input_from_memory(linea,line_path);
-		yyparse();
-		yylex();
-		if (nofinoseainicio!=0){
-			errores= 317;
-			return errores;
-		}
-	}else{
-		origen=12288; //x3000
-	}
-	if (errores!=0){
-		return errores;
-	}
-	pc=origen;
-	do {
-		if (fgets(linea, sizeof(linea), archivo) != NULL) {
-			if (pc < tamMat) {
-				strcpy(map_memory[pc], linea);
-			}
-			set_input_from_memory(linea,line_path);
-			yyparse(); 
-			yylex();
-			if (errores!=0){
-				return errores;
-			}
-			//dato[pc] = datardo;
-			//datardo=0;
-			pc++;
-			if(pc>65535){pc=0;};
-		} else {
-			break;
-		}
-	} while (fin != 7);
-	if (fin!=7){
-		errores=316;
-	}
-	fin=pc;
-	pc=origen;
-	acumulador = 0;
-	pre = 0;
-	fclose(archivo);
-	return errores;
+int assemble(int lang, const char *file_path, const char *line_path){
+    errores = 0;
+    langyacc = lang;
+
+    // Reinicia el estado interno del ensamblador
+    reset();
+    FILE *archivo = fopen(file_path, "r");
+    if (archivo == NULL) {
+        return (errores = 100);
+    }
+
+    char linea[max_caracter];
+    pre = 1;// Primera pasada del ensamblador
+
+    // Si el codigo posee una directiva inicial (ej. .ORIG),
+    // se procesa antes de comenzar a ensamblar el resto del archivo
+    if (lang == 10) {
+        if (fgets(linea, sizeof(linea), archivo) != NULL) {
+            printf("LINEA: %s\n", linea);
+
+            set_input_from_memory(linea, line_path);
+            yyparse();
+            yylex();
+
+            // Verifica que la primera línea sea válida
+            if (codigo_inicio != 0) {
+                fclose(archivo);
+                return (errores = 317);
+            }
+        }
+    } else {
+        // Dirección de origen por defecto (x3000), esto solo se ocupa en el caso de que el codigo este
+		// escrito en hexadecimal o binario, ya que en el caso de que sea en ensamblador, la directiva .ORIG es obligatoria
+        origen = 0x3000;
+    }
+
+    // Si ocurrió algún error durante la inicialización, finalizar
+    if (errores != 0) {
+        fclose(archivo);
+        return errores;
+    }
+
+    pc = origen;// Inicializa el contador de programa
+    // Recorre el archivo línea por línea hasta encontrar la directiva END
+    // o llegar al final del archivo
+    while (fin != 7 && fgets(linea, sizeof(linea), archivo) != NULL) {
+
+        // Guarda una copia del código fuente para depuración.
+        if (pc < tamMat) {
+            strcpy(map_memory[pc], linea);
+        }
+
+        // Envía la línea al analizador léxico/sintáctico
+        set_input_from_memory(linea, line_path);
+        yyparse();
+        yylex();
+
+        // Si el parser detectó un error, abortar el ensamblado
+        if (errores != 0) {
+            fclose(archivo);
+            return errores;
+        }
+
+        pc++;// Avanza el contador de programa
+        if (pc >= tamMat) {// Si se supera el tamaño de memoria, vuelve al inicio
+            pc = 0;
+        }
+    }
+
+    // Si nunca apareció la directiva END, reportar error
+    if (fin != 7) {
+        errores = 316;
+    }
+
+    // Guarda la dirección final del programa
+    fin = pc;
+
+    // Restaura el estado para la ejecución
+    pc = origen;
+    acumulador = 0;
+    pre = 0;
+
+    fclose(archivo);
+    return errores;
 }
 
-int stepin(int lang,const char *line_path){
-	errores=0;
-	langyacc=lang;
-	char* valor;
-	valor = map_memory[pc];
-	if (pc>=0 && pc<=tamMat) {
-		if(pc!=fin){
-			if(valor!=NULL){
-				set_input_from_memory(valor,line_path);
-				yyparse();
-				yylex();
-				if (errores!=0){
-					return errores;
-				}
-				fflush(stdin);
-				pc++;
-				if(pc>65535){pc=0;};
-				printf("PC YACC: %i\n",pc);
-				return 0;
-			}
-		} else {
-			return 1;
-		}
-	} else{
-		errores= 210;
-	}
+int stepin(int lang, const char *line_path){
+    errores = 0;
+    langyacc = lang;
+
+    // Verifica que el PC se encuentre dentro del rango válido de memoria
+    if (pc < 0 || pc >= tamMat) {
+        return (errores = 210);
+    }
+
+    // Si se alcanzó el final del programa, informa que no quedan instrucciones
+    if (pc == fin) {
+        return 1;
+    }
+
+    // Obtiene la instrucción almacenada en la posición actual del PC
+    char *valor = map_memory[pc];
+
+    // Envía la instrucción al analizador léxico y sintáctico
+    set_input_from_memory(valor, line_path);
+    yyparse();
+    yylex();
+
+    // Si ocurrió un error durante el análisis, finalizar la ejecución
+    if (errores != 0) {
+        return errores;
+    }
+
+	// Mantener esta llamada por compatibilidad
+	// Originalmente resolvía un problema durante la ejecución
+	// Revisar antes de eliminar
+    fflush(stdin);
+
+    pc++;// Avanza el contador de programa
+    if (pc >= tamMat) { // Si se alcanza el final de la memoria, vuelve al inicio
+        pc = 0;
+    }
+	printf("PC YACC: %i\n", pc);
+	return 0;
 }
-
-
-/*FUNCIONES PARA EL DICCIONARIO*/
-char* get_line(int pc_line){
-  	char* line = (char*)malloc(100);
-  	strcpy(line, map_memory[pc_line]);
-  	return line;
-}
-
-char* get_etiq(int pc_line){
-	char* etiq = (char*)malloc(100);
-	for (int i = 0; i < contador_matriz_etiquets; i++) {
-		if (matriz_etiquetas_d[i] == pc_line) {
-			strcpy(etiq, matriz_etiquetas_k[i]);
-			return etiq;
-		}
-	}
-	return NULL;
-}
-
-/*FUNCIONES PARA EL DICCIONARIO*/
-
+//========================================	FIN FUNCIONES PRINCIPALES =========================================
+//=============================================================================================================
 %}
 
 %union {
@@ -310,15 +357,12 @@ prog:
 
 intrucciones:
 	ADD dato                    {if(pre==0){
-		acumulador = acumulador + A;
-		nzpeador();
 		printf("REGISTRO: %i\n",acumulador);
 		acumulador = overflow(acumulador);
 		}
 	}
 	|   ADD direccion           {if(pre==0){
-		acumulador = acumulador + dato[direccionador];
-		nzpeador();
+		modificar_acumulador(acumulador + dato[direccionador]);
 		printf("REGISTRO: %i\n",acumulador);
 		acumulador = overflow(acumulador);
 	}}
@@ -326,30 +370,26 @@ intrucciones:
 			errores= 300;
 	}}
 	|   AND dato                {if(pre==0){
-		acumulador = acumulador & A;
-		nzpeador();
+		modificar_acumulador(acumulador & A);
 		printf("REGISTRO: %i\n",acumulador);
 	}
 	}
 	|   AND direccion           {if(pre==0){
-		acumulador = acumulador & dato[direccionador];
-		nzpeador();
+		modificar_acumulador(acumulador & dato[direccionador]);
 		printf("REGISTRO: %i\n",acumulador);
 	}}
 	|	AND error				{if(pre==1){
 			errores= 300;
 	}}
 	|   NOTA direccion          {if(pre==0){
-		acumulador = ~dato[direccionador];
-		nzpeador();
+		modificar_acumulador(~dato[direccionador]);
 		printf("REGISTRO: %i\n",acumulador);
 	}}
 	|	NOTA error				{if(pre==1){
 			errores= 303;
 	}}
 	|   NOTB                    {if(pre==0){
-		acumulador = ~acumulador;
-		nzpeador();
+		modificar_acumulador(~acumulador);
 		printf("REGISTRO: %i\n",acumulador);
 
 	}}
@@ -358,15 +398,13 @@ intrucciones:
 	}}
 	|   LD direccion            {
 		if(pre==0){
-			acumulador = dato[direccionador];
-			nzpeador();
+			modificar_acumulador(dato[direccionador]);
 			printf("REGISTRO: %i\n",acumulador);
 		}
 	}
 	| 	LD dato					{
 		if(pre==0){
-			acumulador = dato[pc+1+A];
-			nzpeador();
+			modificar_acumulador(dato[pc+1+A]);
 			printf("REGISTRO: %i\n",acumulador);
 		}
 	}
@@ -435,7 +473,7 @@ intrucciones:
 
 reservas:
 	'.' ORIG HEXA              {if(pre==1){
-		nofinoseainicio = 0;
+		codigo_inicio = 0;
 		origen=strtol($3+1, '\0',16);
 	}}
 	|'.' ORIG error             {if(pre==1){
@@ -544,7 +582,7 @@ direccionBR: //no imprime, porque? no se, fijate (arreglado)
 %%
 	
 	void yyerror(const char *msje) {
-	printf("%s\n", msje);
+		printf("%s\n", msje);
 	}
 	
 	int main(){

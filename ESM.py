@@ -28,24 +28,18 @@ from GUI_entradaMemoria import  EditorTexto, Memoria
 from GUI_salidaEstado import  Consola, Variables
 from GUI_info import Informacion
 
-version = 19.4
+version = 20.0
 
 """
 Change log:
-
-        Bugs:
-    --Reset limpia de forma correcata la memoria
-    --Deteccion de bucles infinitos agregada + error asociado
-    --Segundo Trapx23 crash y repeat input corregido
-    --Complemento a 2 agregado para traductor_st y accumulador
-    --Opcode de traps corregidos (101 -> 111)
-    --ST mantiene el dato actual de registro
-    --Errores que se detectaban post ensamblar, ahora se detectan todos pre ensamblar
-
-        Features:
-    --Rediseño de pestaña de info en modo oscuro
-    --Zoom keybind y toolbar modes
-    --Errores indican la direccion de memoria en la qque ocurrieron
+    +   Se reestructuro y documento todo el código yacc del programa
+    
+    +   Se elimino la función nzpeador(), el funcionamiento de la misma fue derivado a la 
+        función modificar_acumulador() y se implemento su uso en el parser
+    
+    +   Se documento todo el codigo GUI_barraMenu.py
+    
+    +   Se documento todo el codigo GUI_entradaMemoria.py
 """
 
 primer_inicio = True
@@ -103,8 +97,7 @@ def check_permissions():
         # Verificar permisos del ejecutable de Python
         python_exe = sys.executable
         log(f"Ejecutable de Python: {python_exe}")
-        
-    except Exception as e:
+    except OSError as e:
         log(f"Error al verificar permisos (line 82): {e}")
 def cargar_bibliotecas_c():
     global lib
@@ -116,20 +109,24 @@ def cargar_bibliotecas_c():
             lib = ctypes.CDLL("lib.dll") 
         except OSError as e:
             log(f"Error al cargar DLL en Windows: {e}")
+            return 0
     elif os.name == "posix":  # Linux/Mac
         try:
             os.environ["LD_LIBRARY_PATH"] = os.getcwd()
             lib = ctypes.CDLL(os.path.join(os.getcwd(), "lib.so"))
         except OSError as e:
             log(f"Error al cargar SO en Linux/Mac: {e}")
+            return 0
     else:
         log("Sistema operativo no identificado")
+        return 0
 
     if 'lib' in globals():
         log("Bibliotecas cargadas correctamente.")
     else:
         log("Error al cargar las bibliotecas.")
-
+        return 0
+    
     lib.assemble.restype = ctypes.c_int
     lib.assemble.argtypes = [ctypes.c_int]
     lib.stepin.restype = ctypes.c_int

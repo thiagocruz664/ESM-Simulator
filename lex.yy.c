@@ -1,3 +1,4 @@
+#line 1 "lex.yy.c"
 
 #line 3 "lex.yy.c"
 
@@ -529,8 +530,17 @@ char *yytext;
 extern YYSTYPE yylval;
 #include "assemble.tab.h" // Incluir el encabezado generado por Bison
 
-#line 533 "lex.yy.c"
-#line 534 "lex.yy.c"
+static char* duplicar_texto(const char* texto) {
+    size_t longitud = strlen(texto) + 1;
+    char* copia = (char*)malloc(longitud);
+    if (copia != NULL) {
+        memcpy(copia, texto, longitud);
+    }
+    return copia;
+}
+
+#line 542 "lex.yy.c"
+#line 543 "lex.yy.c"
 
 #define INITIAL 0
 
@@ -747,10 +757,10 @@ YY_DECL
 		}
 
 	{
-#line 33 "assemble.l"
+#line 42 "assemble.l"
 
 
-#line 754 "lex.yy.c"
+#line 763 "lex.yy.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -809,129 +819,129 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 35 "assemble.l"
+#line 44 "assemble.l"
 { return ADD; }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 36 "assemble.l"
+#line 45 "assemble.l"
 { return AND; }
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 37 "assemble.l"
+#line 46 "assemble.l"
 { return NOTA; }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 38 "assemble.l"
+#line 47 "assemble.l"
 { return NOTB; }
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 39 "assemble.l"
+#line 48 "assemble.l"
 { return LD; }
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 40 "assemble.l"
+#line 49 "assemble.l"
 { return ST; }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 41 "assemble.l"
+#line 50 "assemble.l"
 {{ 
-    char* temp = strdup(yytext+2);  // Saltar "br"
+    char* temp = duplicar_texto(yytext+2);  // Saltar "BR"
     yylval = temp; 
     return BR_FLAGS; 
 }}
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 46 "assemble.l"
+#line 55 "assemble.l"
 {{ 
-    char* temp = strdup(yytext+3);  // Saltar "br"
+    char* temp = duplicar_texto(yytext+3);  // Saltar "BR "
     yylval = temp; 
     return BR_FLAGS; 
 }}
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 51 "assemble.l"
+#line 60 "assemble.l"
 { return TRAP; }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 52 "assemble.l"
+#line 61 "assemble.l"
 { return END; }
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 53 "assemble.l"
+#line 62 "assemble.l"
 { return ORIG; }
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 54 "assemble.l"
+#line 63 "assemble.l"
 { return FILL; }
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 55 "assemble.l"
+#line 64 "assemble.l"
 { return BLKW; }
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 57 "assemble.l"
+#line 66 "assemble.l"
 { return '.'; }
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 59 "assemble.l"
-{ yylval = strdup(yytext); return NUMERO; }
+#line 68 "assemble.l"
+{ yylval = duplicar_texto(yytext); return NUMERO; }
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 60 "assemble.l"
-{ yylval = strdup(yytext); return ERROR_NUMERO; }
+#line 69 "assemble.l"
+{ yylval = duplicar_texto(yytext); return ERROR_NUMERO; }
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 61 "assemble.l"
-{ yylval = strdup(yytext); return HEXA;}
+#line 70 "assemble.l"
+{ yylval = duplicar_texto(yytext); return HEXA;}
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 62 "assemble.l"
-{ yylval = strdup(yytext); return ETIQUETA; }
+#line 71 "assemble.l"
+{ yylval = duplicar_texto(yytext); return ETIQUETA; }
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 63 "assemble.l"
-{yylval = strdup(yytext); return INVALIDO;}
+#line 72 "assemble.l"
+{yylval = duplicar_texto(yytext); return INVALIDO;}
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 65 "assemble.l"
+#line 74 "assemble.l"
 // Ignorar espacios
 	YY_BREAK
 case 21:
 /* rule 21 can match eol */
 YY_RULE_SETUP
-#line 66 "assemble.l"
+#line 75 "assemble.l"
 {return '\n';}; // Ignorar nueva línea
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 67 "assemble.l"
+#line 76 "assemble.l"
 { /* Ignorar otros caracteres */ }
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 68 "assemble.l"
+#line 77 "assemble.l"
 ECHO;
 	YY_BREAK
-#line 935 "lex.yy.c"
+#line 944 "lex.yy.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -1936,10 +1946,11 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 68 "assemble.l"
+#line 77 "assemble.l"
 
 
 // Función principal (opcional)
 int yywrap() {
     return 1; // Indica que no hay más entradas
 }
+

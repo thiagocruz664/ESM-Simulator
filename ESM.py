@@ -27,19 +27,54 @@ from GUI_barraMenu import BarraMenu
 from GUI_entradaMemoria import  EditorTexto, Memoria
 from GUI_salidaEstado import  Consola, Variables
 from GUI_info import Informacion
+from GUI_help import Ayuda
 
 version = 20.0
 
 """
 Change log:
-    +   Se reestructuro y documento todo el código yacc del programa
-    
-    +   Se elimino la función nzpeador(), el funcionamiento de la misma fue derivado a la 
-        función modificar_acumulador() y se implemento su uso en el parser
-    
-    +   Se documento todo el codigo GUI_barraMenu.py
-    
-    +   Se documento todo el codigo GUI_entradaMemoria.py
+    +   Se reestructuró y documentó todo el código YACC del programa.
+
+    +   Se eliminó la función nzpeador(). Su funcionamiento fue derivado a la
+        función modificar_acumulador() y se implementó su uso en el parser.
+
+    +   Se documentó todo el código de GUI_barraMenu.py.
+
+    +   Se documentó todo el código de GUI_entradaMemoria.py.
+
+    +   Se agregó la interpretación de los TRAP en la función traductor_para_st()
+        del archivo ESM.py.
+
+    +   Se unificaron las cuatro matrices utilizadas para almacenar instrucciones,
+        datos y etiquetas en una única memoria de 65.536 posiciones.
+
+    +   Se habilitó la carga de instrucciones en el registro acumulador mediante LD
+        y su posterior escritura en otra dirección mediante ST, permitiendo la
+        ejecución de código automodificable.
+
+    +   Se corrigieron en ESM.py las firmas y los tipos de datos utilizados por
+        ctypes para comunicarse con la biblioteca compartida.
+
+    +   Se corrigió el rango permitido por la directiva .FILL, quedando establecido
+        entre -32768 y 32767.
+
+    +   Se modificó la estructura de .FILL para permitir su utilización tanto con
+        una etiqueta previa como sin ella:
+            .FILL #10
+            DATO .FILL #10
+
+    +   Se corrigió el doble reflejo de caracteres producido durante la ejecución
+        con Run. En una secuencia TRAP x23 seguida de TRAP x23, el carácter se
+        muestra una sola vez, al ejecutarse el segundo TRAP.
+
+    +   Se corrigió el procesamiento de etiquetas de una sola letra, como I, L y K.
+
+    +   Se creó el archivo GUI_help.py para implementar una nueva pestaña de Ayuda,
+        separada de la ventana de Información y se incorporó al menú de la barra superior.
+
+    +   Se rediseñó GUI_info.py utilizando la misma estructura visual que
+        GUI_help.py, con encabezado fijo, secciones, botones, contenido desplazable
+        y compatibilidad con los temas claro y oscuro.
 """
 
 primer_inicio = True
@@ -51,6 +86,7 @@ ruta_archivo = None
 diccionario = None
 pc = None
 runer2 = False
+runer = 0
 lang, current_theme, theme = None, None, None
 contador_branch = {}
 
@@ -128,9 +164,9 @@ def cargar_bibliotecas_c():
         return 0
     
     lib.assemble.restype = ctypes.c_int
-    lib.assemble.argtypes = [ctypes.c_int]
+    lib.assemble.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p]
     lib.stepin.restype = ctypes.c_int
-    lib.stepin.argtypes = [ctypes.c_int]
+    lib.stepin.argtypes = [ctypes.c_int, ctypes.c_char_p]
     lib.bandera_check.restype = None
     lib.modificar_acumulador.restype = None
     lib.modificar_acumulador.argtypes = [ctypes.c_int]
@@ -143,6 +179,12 @@ def cargar_bibliotecas_c():
     lib.buscarDireccionEtiqueta.argtypes = [ctypes.c_char_p]
     lib.modificar_matriz_dato.restype = None    
     lib.modificar_matriz_dato.argtypes = [ctypes.c_int,ctypes.c_int]
+    lib.leer_memoria.restype = ctypes.c_uint
+    lib.leer_memoria.argtypes = [ctypes.c_int]
+    lib.escribir_memoria.restype = None
+    lib.escribir_memoria.argtypes = [ctypes.c_int, ctypes.c_int]
+    lib.reemplazar_linea_st.restype = None
+    lib.reemplazar_linea_st.argtypes = [ctypes.c_char_p, ctypes.c_int]
 check_permissions()
 print(platform.architecture())
 cargar_bibliotecas_c()
@@ -174,19 +216,98 @@ def eliminar_comentarios(linea):
     if comentario != -1:
         return linea[:comentario]
     return linea
-def procesar_linea(linea, archivo_salida):
+def quitar_etiqueta_de_linea(linea, etiqueta):
+    """Quita solo la etiqueta inicial, sin alterar la instruccion ni sus operandos."""
+    if not etiqueta:
+        return linea
+
+    texto = linea.lstrip()
+    if not texto.startswith(etiqueta):
+        return linea
+
+    resto = texto[len(etiqueta):]
+    if resto and not resto[0].isspace():
+        return linea
+    return resto.lstrip()
+def debe_diferir_reflejo_trap(run_en_curso, palabra_siguiente):
+    """Indica si TRAP x21 debe ser quien refleje la entrada de TRAP x23."""
+    return bool(run_en_curso) and (palabra_siguiente & 0xFFFF) == 0xE021
+
+PREFIJO_FILL_INTERNO = "ETIQUETAINTERNAFILL"
+
+
+def preparar_fill_sin_etiqueta(segmento, indice):
+    """Agrega una etiqueta tecnica solo al archivo temporal de ensamblado."""
+    tokens = segmento.split()
+    if tokens and tokens[0] == ".FILL":
+        return f"{PREFIJO_FILL_INTERNO}{indice} {segmento}", indice + 1
+    return segmento, indice
+
+
+def encontrar_etiqueta_no_definida(lineas):
+    """Devuelve la primera etiqueta referenciada que no fue declarada."""
+    operaciones = {"ADD", "AND", "NOTA", "NOTB", "LD", "ST", "TRAP"}
+    directivas = {".ORIG", ".END", ".FILL", ".BLKW"}
+    etiquetas = set()
+    instrucciones = []
+
+    for linea in lineas:
+        texto = linea.split("//", 1)[0]
+        for segmento in texto.split(";"):
+            tokens = segmento.split()
+            if not tokens:
+                continue
+
+            primero = tokens[0]
+            es_operacion = primero in operaciones or primero.startswith("BR")
+            if primero not in directivas and not es_operacion:
+                etiquetas.add(primero)
+                tokens = tokens[1:]
+
+            if tokens:
+                instrucciones.append(tokens)
+
+    for tokens in instrucciones:
+        operacion = tokens[0]
+        operando = None
+        if operacion in {"ADD", "AND", "NOTA", "LD", "ST"}:
+            if len(tokens) > 1:
+                operando = tokens[1]
+        elif operacion == "BR":
+            if len(tokens) > 2:
+                operando = tokens[2]
+        elif operacion.startswith("BR"):
+            if len(tokens) > 1:
+                operando = tokens[1]
+
+        if (
+            operando
+            and not operando.startswith(("#", "x"))
+            and operando not in etiquetas
+        ):
+            return operando
+
+    return None
+
+
+def procesar_linea(linea, archivo_salida, contador_fill=0):
     linea = eliminar_comentarios(linea)
     segmentos = linea.split(';')
     for segmento in segmentos:
         segmento = eliminar_espacios(segmento)
         if not es_linea_vacia(segmento):
+            segmento, contador_fill = preparar_fill_sin_etiqueta(
+                segmento, contador_fill
+            )
             archivo_salida.write(segmento + '\n')
+    return contador_fill
 
 def preprocesado(direccion_archivo, archivo_salida_path):
     Binario = True
     Hexa = True
     Normal = False
     historial = 0
+    contador_fill = 0
     e=0
     log(f"ARCHIVO LLEGADO PREPROCESADO: {direccion_archivo}")
     try:
@@ -223,7 +344,9 @@ def preprocesado(direccion_archivo, archivo_salida_path):
                         Normal = True
 
                     log(f"LINEA: {linea.strip()}")
-                    procesar_linea(linea, archivo_salida)
+                    contador_fill = procesar_linea(
+                        linea, archivo_salida, contador_fill
+                    )
                     
         log(f"Binario = {Binario}, Hexa = {Hexa}, Normal = {Normal}\n")
         if Binario == True and Hexa == False and Normal == False:
@@ -588,6 +711,11 @@ def traductor_para_st(decimal,direccion_towrite):
                 PCoffset = decimal_invertido + 1
                 offset = (direccion_towrite + 1) - (PCoffset) ###CHEKEAR CON EL INVERSOR
                 return f"BR {n}{z}{p} x{format(offset,f'04x')}"
+        case "1110": #TRAP
+            if binario[14] == "0": #x21
+                return f"TRAP x21"
+            if binario[14] == "1": #x23
+                return f"TRAP x23"
     return None
 
 errores_lang = {
@@ -596,7 +724,7 @@ errores_lang = {
         200: "Error 200: La cantidad de instrucciones usando el orig dado sobrepaso la capacidad de la memoria",
         210: "Error 210: El PC intento acceder a una posición fuera del rango de la memoria",
         211: "Error 211: La posicion de memoria salio fuera del rango de la memoria",
-        212: "Error 212: El número ingresado está fuera del rango permitido.",
+        212: "Error 212: El valor de .FILL debe estar entre -32768 y 32767.",
         213: "Error 213: Se sobrepaso el limite numerico permitido en el registro",
         220: "Error 220: No hay código ensamblado",
         221: "Error 221: Inconsistencia en el código ensamblado (Se mezclo binario con hexadecimal o ensamblador)",
@@ -627,7 +755,7 @@ errores_lang = {
         200: "Error 200: The number of instructions using the given .ORIG exceeded memory capacity",
         210: "Error 210: The PC attempted to access a position outside the memory range",
         211: "Error 211: The memory position went out of the memory range",
-        212: "Error 212: The number entered is out of the allowed range.",
+        212: "Error 212: The .FILL value must be between -32768 and 32767.",
         213: "Error 213: The numeric limit allowed in the register was exceeded",
         220: "Error 220: No assembled code found",
         221: "Error 221: Inconsistency in the assembled code (Binary, hexadecimal or assembler was mixed)",
@@ -689,47 +817,43 @@ def consola_capture():
     consola.consola.bind("<Key>", capture_char)
     consola.consola.focus()
 def capture_char(event):
-    global tib, ab
-    
-    while tib == 1:
-        teclas_especiales = {"Return", "KP_Enter"}  
-        char = event.char
-        
-        
-        if event.keysym in teclas_especiales:
-            char = '\r'  
-        
-    
-        teclas_ignorar = {
-            "Shift_L", "Shift_R", "Control_L", "Control_R", 
-            "Alt_L", "Alt_R", "Caps_Lock", "Meta", "ISO_Level3_Shift"
-        }
-        
-       
-        if event.keysym in teclas_ignorar or (event.state & 0x00000004):  
-            return
-        
-        if char is None or (not char.isprintable() and char != '\r'):
-            error(320)
-            return
-        
-        if not (char.isalnum() or char in ['_', '-'] or char == '\r'):  
-            error(320)
-            return
-        
-      
-        if char.isprintable() or char == '\r':
-            if ab == 0:
-                consola.consola.delete("insert -1 chars", "insert")  # Elimina carácter anterior
-                display_char = ' ' if char == '\r' else char
-                consola.print(display_char) 
-                ab = 1
-            
-            tib = 0
-            lib.bandera_check()
-            c_int_value = ctypes.c_int(ord(char))
-            lib.modificar_acumulador(c_int_value)
-            break
+    global tib, ab, runer
+
+    if tib != 1:
+        return "break"
+
+    teclas_especiales = {"Return", "KP_Enter"}
+    teclas_ignorar = {
+        "Shift_L", "Shift_R", "Control_L", "Control_R",
+        "Alt_L", "Alt_R", "Caps_Lock", "Meta", "ISO_Level3_Shift"
+    }
+    char = '\r' if event.keysym in teclas_especiales else event.char
+
+    if event.keysym in teclas_ignorar or (event.state & 0x00000004):
+        return "break"
+    if char is None or (not char.isprintable() and char != '\r'):
+        error(320)
+        return "break"
+    if not (char.isalnum() or char in ['_', '-'] or char == '\r'):
+        error(320)
+        return "break"
+
+    # Cuando Run encuentra TRAP x23 seguido de TRAP x21, la entrada no se
+    # refleja en el primer trap. El segundo trap muestra el caracter una sola
+    # vez, evitando el eco duplicado que se producia en la ejecucion continua.
+    pc_despues_de_entrada = ctypes.c_int.in_dll(lib, "pc").value
+    palabra_siguiente = lib.leer_memoria(pc_despues_de_entrada)
+    diferir_reflejo = debe_diferir_reflejo_trap(runer == 1, palabra_siguiente)
+
+    if ab == 0:
+        if not diferir_reflejo:
+            display_char = ' ' if char == '\r' else char
+            consola.print(display_char)
+        ab = 1
+
+    tib = 0
+    lib.bandera_check()
+    lib.modificar_acumulador(ctypes.c_int(ord(char)))
     
     consola.consola.config(state=tk.DISABLED)
     consola.consola.unbind("<Key>")
@@ -802,14 +926,13 @@ def capture_char(event):
         log(f"Error (line 720): {ex}")
     
     try:
-        global runer
         if runer == 1:
             runer = 0
             run()
     except Exception as ex:
         log(f"Error (line 727): {ex}")
     
-    tib = 1
+    return "break"
     
 def assembly():
     try:
@@ -845,10 +968,13 @@ def assembly():
     dir = 12288
     lista=[]
     try:
-        if e >= 0:
-            error(e)
-            log(f"Error en el assembly {e}")
-        else:
+        if e == 0:
+            with open(temp_file_path, 'r', encoding='utf-8') as temp_file:
+                etiqueta_faltante = encontrar_etiqueta_no_definida(temp_file)
+            if etiqueta_faltante is not None:
+                e = 314
+                log(f"Etiqueta no definida: {etiqueta_faltante}")
+        elif e < 0:
             with open(temp_file_path, 'r', encoding='utf-8') as temp_file:
                 if e == -2:
                     for linea in temp_file:
@@ -877,13 +1003,18 @@ def assembly():
     except Exception as ex:
         log(f"Error (line 793): {ex}")
 
-    if len(lista)==0:
+    if e == 0 and len(lista)==0:
         log("Codigo en assembly")
         e = lib.assemble(10,c_temp_file_path,c_line_path)
-    else:
+    elif e in (-2, -16) and len(lista)>0:
         log("Codigo en hexa/binario")
         e = lib.assemble(1,c_temp_file_path,c_line_path)
     log(f"Codigo error del yacc {e}")
+
+    if e != 0:
+        error(e)
+        log(f"Error en el assembly {e}")
+        return
     
     log("ESTE ES EL ARCHIVO TEMPORAL")
     with open(temp_file_path, 'r', encoding='utf-8') as temp_file:
@@ -910,8 +1041,9 @@ def assembly():
             if (linea != ".END\n"):
                 if lib.get_etiq(pc) != None:
                     etiqueta = lib.get_etiq(pc).decode('utf-8')
-                    linea = linea.replace(etiqueta,"")
-                    linea = linea.replace(" ","",1)
+                    linea = quitar_etiqueta_de_linea(linea, etiqueta)
+                    if etiqueta.startswith(PREFIJO_FILL_INTERNO):
+                        etiqueta = None
                 else:
                     etiqueta = None
 
@@ -1133,6 +1265,9 @@ def assembly():
                         if imm12[0] == "#": ##CASO DE NUMERO DIRECTO
                             filling = imm12[1:].replace("\n","")
                             filling = int(filling)
+                            if filling < -32768 or filling > 32767:
+                                e = 212
+                                break
                             if filling >= 0:
                                 num_bin = format(filling, f'0{16}b')
                             else:
@@ -1246,65 +1381,49 @@ def stepin():
                 status = c_status.value.decode("utf-8")
                 log(f"PC ACTUAL: {pc}   |   ACUMULADOR: {acumulador}    |   STATUS:{status}")
                 log(f"TIB:   {c_tib}   {tib}")
-                etiqueta_siono = False
+
+                # El núcleo informa directamente si ST escribió memoria y en qué
+                # dirección. Así la GUI refleja la palabra realmente almacenada,
+                # sin volver a deducir el destino a partir del texto de la instrucción.
                 try:
-                    if(diccionario[hex(pc)][1].split(" ")[0].replace("\n","")=="ST"):
-                        imm12 = diccionario[hex(pc)][1].split(" ")[1].replace("\n","")
-                        if imm12[0] == "#": ##CASO DE NUMERO DIRECTO
-                            borrar = int(imm12[1:])+1
-                        elif imm12[0] == 'x': ##CASO DE DIRECCION DE MEMORIA
-                            dir_objetivo_borrar = int(imm12[1:],16)
-                            borrar = dir_objetivo_borrar - (pc)
-                        else:   ##CASO DE ETIQUETA
-                            etiqueta_siono = True
-                            imm12 = imm12.replace("\n","")                      
-                            c_string = ctypes.c_char_p(imm12.encode('utf-8'))
-                            dir_etiq_int = lib.buscarDireccionEtiqueta(c_string)
-                            borrar = dir_etiq_int - (pc)
-                            remplazar_etiqueta = diccionario[hex(pc+borrar)][0]
-                        c_acumulador = (ctypes.c_int).in_dll(lib, "acumulador")
-                        acumulador = c_acumulador.value
+                    hubo_escritura = ctypes.c_int.in_dll(
+                        lib, "hubo_escritura_memoria"
+                    ).value
+                    if hubo_escritura:
+                        direccion_escrita = ctypes.c_int.in_dll(
+                            lib, "ultima_direccion_escrita"
+                        ).value
+                        palabra = lib.leer_memoria(direccion_escrita) & 0xFFFF
+                        valor_con_signo = (
+                            palabra - 0x10000 if palabra & 0x8000 else palabra
+                        )
+                        binario = format(palabra, "016b")
+                        hexadecimal = format(palabra, "04X")
+                        instruccion = traductor_para_st(
+                            palabra, direccion_escrita
+                        )
+                        if instruccion is None:
+                            instruccion = f"#{valor_con_signo}"
 
-                        # Forzar a 16 bits
-                        acum16 = acumulador & 0xFFFF  
-
-                        # Interpretar como com2
-                        if acum16 & 0x8000:
-                            acum_signed = acum16 - 0x10000
-                        else:
-                            acum_signed = acum16
-
-                        if acumulador >= 0:
-                            acum_bin = format(acumulador,f'0{16}b')
-                            acum_hexa = format(acumulador,f'04x').upper()
-                        else:
-                            acum_bin = format((1 << 16) + acumulador, f'0{16}b')
-                            acum_hexa = format((1<<16) + acumulador,f'04x').upper()
-
-                        if pc+borrar < 0:
-                            dir = 65536 + (pc+borrar)
-                            log(f"RULETA {dir}")
-                        else:
-                            dir = pc +borrar
-                            log(f"NO RULETA {dir}")
-                        instrucsão = traductor_para_st(acumulador,dir)
-                        if instrucsão != None:
-                            instrucsão = instrucsão + "\0"
-                            c_string_st = ctypes.c_char_p(instrucsão.encode('utf-8'))
-                            lib.reemplazar_linea_st(c_string_st,dir)
-                        else:
-                            log(f"INSTRUCCION ST NO ENCONTRADA, SE PONE #{acum_signed}")
-                            instrucsão = f"#{acum_signed}"
-                            c_string_st = ctypes.c_char_p(instrucsão.encode('utf-8'))
-                            lib.reemplazar_linea_st(c_string_st,dir)
-                        if etiqueta_siono:
-                            tupla_remplazo = (remplazar_etiqueta,f"{instrucsão}",f"{acum_bin}",f"{acum_hexa}")
-                        else:
-                            tupla_remplazo = (None,f"{instrucsão}",f"{acum_bin}",f"{acum_hexa}")
-                        diccionario[hex(dir)] = tupla_remplazo
-                        log(f"LO QUE GUARDE {diccionario[hex(dir)]}")
+                        etiqueta = diccionario.get(
+                            hex(direccion_escrita), (None,)
+                        )[0]
+                        diccionario[hex(direccion_escrita)] = (
+                            etiqueta,
+                            instruccion,
+                            binario,
+                            hexadecimal,
+                        )
+                        lib.reemplazar_linea_st(
+                            instruccion.encode("utf-8"), direccion_escrita
+                        )
+                        log(
+                            "MEMORIA ACTUALIZADA "
+                            f"{hex(direccion_escrita)}: "
+                            f"{diccionario[hex(direccion_escrita)]}"
+                        )
                 except Exception as ex:
-                    log(f"Error (SE QUISO DETECTAR UN ST): {ex}")
+                    log(f"Error al reflejar una escritura ST: {ex}")
                 try:
                     if(diccionario[hex(pc)][1].split(" ")[0].replace("\n","")=="BR"):     
                         if pc not in contador_branch:
@@ -1484,6 +1603,14 @@ def about():
     except Exception as ex:
         log(f"Error (line 1350): {ex}")
 
+def ayuda():
+    try:
+        menu.frame_close()
+        help_window = Ayuda(ventana, lang, current_theme)
+        help_window.tema()
+    except Exception as ex:
+        log(f"Error al abrir la ayuda: {ex}")
+
 def ajustar_zoom(valor):
     if valor < 100:
         valor = 100
@@ -1508,7 +1635,7 @@ ventana.grid_columnconfigure(1, weight=1)
 
 zoom_value = 100 #aca ya fue todo y pongo el zoom inicial donde quiero
 
-menu = BarraMenu(ventana, lang, theme, zoom_value, nuevo_archivo, abrir_archivo, guardar_archivo, guardar_como, assembly, run, stepin, reset, toggle_mode, español, english, about, guardar_archivo_binario, guardar_archivo_hexadecimal, ajustar_zoom)
+menu = BarraMenu(ventana, lang, theme, zoom_value, nuevo_archivo, abrir_archivo, guardar_archivo, guardar_como, assembly, run, stepin, reset, toggle_mode, español, english, ayuda, about, guardar_archivo_binario, guardar_archivo_hexadecimal, ajustar_zoom)
 editor = EditorTexto(ventana,guardar_archivo,escrivir_archivo,mostrar_mensaje)
 consola = Consola(ventana,lang)
 memoria = Memoria(ventana,diccionario,pc,ab,theme)
@@ -1530,5 +1657,3 @@ apply_theme()
 ajustar_zoom(zoom_value)
 
 ventana.mainloop()
-
-

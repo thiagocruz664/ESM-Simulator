@@ -72,27 +72,41 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 //#define YYDEBUG 1
 #include <ctype.h>
 #include "assemble.tab.h"
 int yylex(void);
 void yyerror(const char *s);
-
 	
+// MEMORIA UNIFICADA
 #define max_caracter 100
 #define tamMat 65536
 
+typedef enum {
+	CELDA_VACIA = 0,
+	CELDA_PALABRA = 1,
+	CELDA_FIN = 2
+} TipoCelda;
 
-	
-//MAPA MEMORIA
-char map_memory[tamMat][max_caracter];
-int dato[tamMat];
-int acumulador, pc, pre, etiqueta_key, A,fin,nofinoseainicio,origen,datardo;
+typedef struct {
+	uint16_t palabra;
+	char linea[max_caracter];
+	char etiqueta[max_caracter];
+	uint8_t tipo;
+} CeldaMemoria;
 
-//MAPA ETIQUETAS
-char *matriz_etiquetas_k[65536] ={0};
-int matriz_etiquetas_d[65536] = {0};
-int contador_matriz_etiquets = 0;
+/*
+ * Una única celda conserva la palabra de 16 bits que consume el procesador y
+ * los metadatos que necesitan el ensamblador y la GUI. Las instrucciones y
+ * los datos comparten exactamente el mismo campo `palabra`.
+ */
+CeldaMemoria memoria[tamMat];
+int acumulador, pc, pre, etiqueta_key, A,fin,codigo_inicio,origen,datardo;
+
+/* Estado de la última escritura, utilizado por Python para refrescar la GUI. */
+int hubo_escritura_memoria = 0;
+int ultima_direccion_escrita = -1;
 
 char* data, *ALUFlags="z";
 extern FILE *yyin; // Declaración de yyin
@@ -105,78 +119,30 @@ int banderaParaBranch=0;
 int langyacc=1;
 int errores=0;
 FILE *stream;
-void set_input_from_memory(const char* linea,const char *line_path) {
-	// fclose(stream);
-   	// stream = fopen("./tempfile.tmp", "w+b");
-	if (stream) {
-        fclose(stream);
-    }
-	stream = fopen(line_path, "w+b");
-    if (!stream) {
-        perror("Error creando archivo temporal");
-        return;
-    }
+
+//=========================================================================================================
+//========================================	FUNCIONES DE OPERACION ========================================
+void modificar_acumulador(int nuevo_valor){
+	//Actualiza el valor del acumulador
+	acumulador = nuevo_valor;
 	
-    fwrite(linea, 1, strlen(linea), stream);
-    rewind(stream);
-
-    yyin = stream;
-}
-
-void bandera_check(){
-	banderaParaTrapDeEntrada=0;
-	banderaParaTrapDeSalida=0;
-	banderaParaBranch=0;
-}
-
-int overflow(int value) {
-	while (value > 32767) {
-		value -= 65536;
-	}
-	while (value < -32768) {
-		value += 65536;
-	}
-	return value;
-}
-
-int buscarDireccionEtiqueta(char *etiqueta){
-	for(int i=0; i<contador_matriz_etiquets;i++){
-		if(strcmp(matriz_etiquetas_k[i],etiqueta)==0){
-			return matriz_etiquetas_d[i];
-		}
-	}
-	return -1;
-}
-
-int buscarDato(char *etiqueta){
-	int dir=buscarDireccionEtiqueta(etiqueta);
-	return dato[dir];
-}
-
-void nzpeador(){
+	//Evalua el dato actual del acumulador y setea los flags de la ALU en consecuencia
 	// Forzar a 16 bits
     unsigned short acum16 = (unsigned short)(acumulador & 0xFFFF);
 
     // Interpretar como 16 bits con signo
     short acum_signed = (short)acum16;
-	if(acum_signed<0){
-			ALUFlags = "n";
+	if(acum_signed < 0){			ALUFlags = "n";
 		}else{
-			if(acum_signed==0){
-				ALUFlags = "z";
-			}else{
-				ALUFlags = "p";
-			}
+			if(acum_signed == 0){	ALUFlags = "z";
+			}else{					ALUFlags = "p";}
 	}
 }
 
-void modificar_acumulador(int nuevo_valor){
-	acumulador = nuevo_valor;
-	nzpeador();
-}
-
 int compararFlags(char *flagsIns){
-	for(int i=0; i<strlen(flagsIns);i++){
+	//Utilizada para los BRANCHES, compara los flads de la ALU con los flags de la instruccion,
+	//si hay coincidencia devuelve 1, sino 0
+	for(size_t i=0; i<strlen(flagsIns);i++){
 		if(ALUFlags[0]==flagsIns[i]){
 			return 1;
 		}
@@ -184,32 +150,251 @@ int compararFlags(char *flagsIns){
 	return 0;
 }
 
+void bandera_check(){
+	//Resetea las banderas de trap y branch, para que no se queden activas en el proximo ciclo
+	banderaParaTrapDeEntrada=0;
+	banderaParaTrapDeSalida=0;
+	banderaParaBranch=0;
+}
+
+int overflow(int value) {
+	//En caso de que ocurra un overflow, este lo corrige, para que el valor quede en el rango de -32768 a 32767
+	while (value > 32767) { value -= 65536;
+	}
+	while (value < -32768) { value += 65536;
+	}
+	return value;
+}
+
+int extender_signo(uint16_t valor, int bits) {
+	uint16_t mascara = (uint16_t)((1u << bits) - 1u);
+	uint16_t signo = (uint16_t)(1u << (bits - 1));
+	valor &= mascara;
+	return (valor & signo) ? (int)(valor | (uint16_t)(~mascara)) : (int)valor;
+}
+
+int direccion_relativa(int base, int desplazamiento) {
+	return (base + 1 + desplazamiento) & 0xFFFF;
+}
+//========================================	FIN FUNCIONES DE OPERACION ========================================
+//=============================================================================================================
+
+
+
+//=======================================================================================================
+//========================================	FUNCIONES DE MEMORIA ========================================
+void set_input_from_memory(const char* linea,const char *line_path) {
+	//Esta funcion se encarga de crear un archivo temporal con la linea de codigo que se le pasa 
+	//como parametro, para que el parser pueda leerlo
+
+	if (stream) {fclose(stream);}// Cierra el archivo temporal anterior si existe
+	
+	stream = fopen(line_path, "w+b");// Abre un archivo temporal en modo binario para escritura y lectura 
+	if (!stream) {
+        perror("Error creando archivo temporal");
+        return;
+    }
+    
+	fwrite(linea, 1, strlen(linea), stream);// Escribe la línea en el archivo temporal
+    rewind(stream);// Mueve el puntero del archivo al inicio para que pueda ser leído desde el principio
+
+	yyin = stream;// Asigna el archivo temporal a yyin para que el parser lo lea
+}
+
+char* get_line(int pc_line){
+	// Esta funcion devuelve la linea de codigo que se encuentra en la posicion de memoria indicada por pc_line
+	if (pc_line < 0 || pc_line >= tamMat) {
+		return NULL;
+	}
+	return memoria[pc_line].linea;
+}
+
+char* get_etiq(int pc_line){
+	// Esta funcion devuelve la etiqueta que se encuentra en la posicion de memoria indicada por pc_line
+	if (pc_line < 0 || pc_line >= tamMat || memoria[pc_line].etiqueta[0] == '\0') {
+		return NULL;
+	}
+	return memoria[pc_line].etiqueta;
+}
+
+int buscarDireccionEtiqueta(char *etiqueta){
+	if (etiqueta == NULL) {
+		return -1;
+	}
+	for(int i=0; i<tamMat; i++){
+		if(memoria[i].etiqueta[0] != '\0' && strcmp(memoria[i].etiqueta,etiqueta)==0){
+			return i;
+		}
+	}
+	return -1;
+}
+
+int buscarDato(char *etiqueta){
+	int dir=buscarDireccionEtiqueta(etiqueta);
+	return dir >= 0 ? memoria[dir].palabra : 0;
+}
+
+void registrar_etiqueta(const char *etiqueta, int direccion){
+	if (etiqueta == NULL || direccion < 0 || direccion >= tamMat) {
+		return;
+	}
+	strncpy(memoria[direccion].etiqueta, etiqueta, max_caracter - 1);
+	memoria[direccion].etiqueta[max_caracter - 1] = '\0';
+}
+
+/*
+ * Comprueba las referencias simbolicas una vez finalizada la primera pasada.
+ * En ese momento ya se registraron tambien las etiquetas declaradas mas
+ * adelante, por lo que solo se rechazan los simbolos realmente inexistentes.
+ */
+int validar_referencias_etiquetas(void){
+	for (int direccion = 0; direccion < tamMat; direccion++) {
+		if (memoria[direccion].linea[0] == '\0') {
+			continue;
+		}
+
+		char copia[max_caracter];
+		strncpy(copia, memoria[direccion].linea, max_caracter - 1);
+		copia[max_caracter - 1] = '\0';
+
+		char *token = strtok(copia, " \t\r\n");
+		if (token == NULL) {
+			continue;
+		}
+
+		/* Si la celda tiene etiqueta, el segundo token es la operacion. */
+		if (memoria[direccion].etiqueta[0] != '\0' &&
+			strcmp(token, memoria[direccion].etiqueta) == 0) {
+			token = strtok(NULL, " \t\r\n");
+			if (token == NULL) {
+				continue;
+			}
+		}
+
+		char *operando = NULL;
+		if (strcmp(token, "ADD") == 0 || strcmp(token, "AND") == 0 ||
+			strcmp(token, "NOTA") == 0 || strcmp(token, "LD") == 0 ||
+			strcmp(token, "ST") == 0) {
+			operando = strtok(NULL, " \t\r\n");
+		} else if (strcmp(token, "BR") == 0) {
+			/* Sintaxis separada: BR nzp ETIQUETA. */
+			(void)strtok(NULL, " \t\r\n");
+			operando = strtok(NULL, " \t\r\n");
+		} else if (strncmp(token, "BR", 2) == 0) {
+			/* Sintaxis compacta: BRnzp ETIQUETA. */
+			operando = strtok(NULL, " \t\r\n");
+		}
+
+		if (operando != NULL && operando[0] != '#' && operando[0] != 'x' &&
+			buscarDireccionEtiqueta(operando) == -1) {
+			return 314;
+		}
+	}
+	return 0;
+}
+
+/*
+ * .FILL no necesita una etiqueta. Se procesa antes del parser para mantener
+ * compatibilidad tanto con la forma historica "ETQ .FILL #n" como con
+ * ".FILL #n". Devuelve 1 si la linea era un .FILL sin etiqueta.
+ */
+int procesar_fill_sin_etiqueta(const char *linea){
+	const char *cursor = linea;
+	while (*cursor != '\0' && isspace((unsigned char)*cursor)) {
+		cursor++;
+	}
+
+	if (strncmp(cursor, ".FILL", 5) != 0 ||
+		(cursor[5] != '\0' && !isspace((unsigned char)cursor[5]))) {
+		return 0;
+	}
+
+	cursor += 5;
+	while (*cursor != '\0' && isspace((unsigned char)*cursor)) {
+		cursor++;
+	}
+	if (*cursor != '#') {
+		errores = 312;
+		return 1;
+	}
+
+	char *fin_numero = NULL;
+	long valor = strtol(cursor + 1, &fin_numero, 10);
+	if (fin_numero == cursor + 1) {
+		errores = 312;
+		return 1;
+	}
+	while (*fin_numero != '\0' && isspace((unsigned char)*fin_numero)) {
+		fin_numero++;
+	}
+	if (*fin_numero != '\0') {
+		errores = 315;
+		return 1;
+	}
+	if (valor < -32768 || valor > 32767) {
+		errores = 212;
+		return 1;
+	}
+
+	memoria[pc].palabra = (uint16_t)((int)valor & 0xFFFF);
+	memoria[pc].tipo = CELDA_PALABRA;
+	return 1;
+}
+
 void reemplazar_linea_st(char *nueva_linea, int pc_reemplazo){
-	strcpy(map_memory[pc_reemplazo], nueva_linea);
+	if (nueva_linea == NULL || pc_reemplazo < 0 || pc_reemplazo >= tamMat) {
+		return;
+	}
+	strncpy(memoria[pc_reemplazo].linea, nueva_linea, max_caracter - 1);
+	memoria[pc_reemplazo].linea[max_caracter - 1] = '\0';
 }
 
 void modificar_matriz_dato(int nuevo_dato, int pc_mod){
-	dato[pc_mod] = nuevo_dato;
-	printf("SE COLOCO EL DATO %i en la posicion %i\n",dato[pc_mod],pc_mod);
+	if (pc_mod < 0 || pc_mod >= tamMat) {
+		return;
+	}
+	memoria[pc_mod].palabra = (uint16_t)(nuevo_dato & 0xFFFF);
+	memoria[pc_mod].tipo = CELDA_PALABRA;
+	printf("SE COLOCO LA PALABRA %u en la posicion %i\n",memoria[pc_mod].palabra,pc_mod);
 }
 
+unsigned int leer_memoria(int direccion){
+	if (direccion < 0 || direccion >= tamMat) {
+		return 0;
+	}
+	return memoria[direccion].palabra;
+}
+
+void escribir_memoria(int direccion, int valor){
+	if (direccion < 0 || direccion >= tamMat) {
+		return;
+	}
+	memoria[direccion].palabra = (uint16_t)(valor & 0xFFFF);
+	memoria[direccion].tipo = CELDA_PALABRA;
+	hubo_escritura_memoria = 1;
+	ultima_direccion_escrita = direccion;
+}
+//========================================	FIN FUNCIONES DE MEMORIA ========================================
+//===========================================================================================================
+
+
+
+//========================================================================================================
+//========================================	FUNCIONES PRINCIPALES ========================================
 void reset() {
-    memset(map_memory, 0, sizeof(map_memory));
-    memset(dato, 0, sizeof(dato));
+	// Reinicia todas las variables y estructuras de datos a sus valores iniciales
+	    memset(memoria, 0, sizeof(memoria));
     acumulador = 0;
     pc = 0;
     pre = 0;
     etiqueta_key = 0;
     A = 0;
     fin = 0;
-	nofinoseainicio = 7;
+	codigo_inicio = 7;
     origen = 0;
     datardo = 0;
-    for (int i = 0; i < 65536; i++) {
-        matriz_etiquetas_k[i] = NULL; // Reiniciar punteros
-        matriz_etiquetas_d[i] = 0; // Reiniciar enteros
-    }
-    contador_matriz_etiquets = 0;
+	    hubo_escritura_memoria = 0;
+	    ultima_direccion_escrita = -1;
     data = NULL;
     ALUFlags = "z";
     direccionador = 0;
@@ -218,116 +403,208 @@ void reset() {
     banderaParaBranch = 0;
 }
 
-int assemble(int lang,const char *file_path,const char *line_path){
-	errores=0;
-	langyacc=lang;
-	reset();
-	FILE *archivo;
-	char linea[max_caracter];
-	archivo = fopen(file_path, "r");
-	if (archivo == NULL) {
-		errores= 100;
-		return errores;
-	}
-	pre=1;
-	if (lang == 10){
-		fgets(linea,sizeof(linea),archivo);
-		printf("LINEA: %s\n",linea);
-		set_input_from_memory(linea,line_path);
-		yyparse();
-		yylex();
-		if (nofinoseainicio!=0){
-			errores= 317;
-			return errores;
-		}
-	}else{
-		origen=12288; //x3000
-	}
-	if (errores!=0){
-		return errores;
-	}
-	pc=origen;
-	do {
-		if (fgets(linea, sizeof(linea), archivo) != NULL) {
-			if (pc < tamMat) {
-				strcpy(map_memory[pc], linea);
+int assemble(int lang, const char *file_path, const char *line_path){
+    errores = 0;
+    langyacc = lang;
+
+    // Reinicia el estado interno del ensamblador
+    reset();
+    FILE *archivo = fopen(file_path, "r");
+    if (archivo == NULL) {
+        return (errores = 100);
+    }
+
+    char linea[max_caracter];
+    pre = 1;// Primera pasada del ensamblador
+
+    // Si el codigo posee una directiva inicial (ej. .ORIG),
+    // se procesa antes de comenzar a ensamblar el resto del archivo
+    if (lang == 10) {
+        if (fgets(linea, sizeof(linea), archivo) != NULL) {
+            printf("LINEA: %s\n", linea);
+
+            set_input_from_memory(linea, line_path);
+            yyparse();
+            yylex();
+
+            // Verifica que la primera línea sea válida
+            if (codigo_inicio != 0) {
+                fclose(archivo);
+                return (errores = 317);
+            }
+        }
+    } else {
+        // Dirección de origen por defecto (x3000), esto solo se ocupa en el caso de que el codigo este
+		// escrito en hexadecimal o binario, ya que en el caso de que sea en ensamblador, la directiva .ORIG es obligatoria
+        origen = 0x3000;
+    }
+
+    // Si ocurrió algún error durante la inicialización, finalizar
+    if (errores != 0) {
+        fclose(archivo);
+        return errores;
+    }
+
+    pc = origen;// Inicializa el contador de programa
+    // Recorre el archivo línea por línea hasta encontrar la directiva END
+    // o llegar al final del archivo
+    while (fin != 7 && fgets(linea, sizeof(linea), archivo) != NULL) {
+
+        // Guarda una copia del código fuente para depuración.
+        if (pc < tamMat) {
+	            strncpy(memoria[pc].linea, linea, max_caracter - 1);
+	            memoria[pc].linea[max_caracter - 1] = '\0';
+        }
+
+        // .FILL puede reservar una palabra sin requerir una etiqueta previa.
+        if (!procesar_fill_sin_etiqueta(linea)) {
+            // Envía el resto de las líneas al analizador léxico/sintáctico
+            set_input_from_memory(linea, line_path);
+            yyparse();
+            yylex();
+        }
+
+        // Si el parser detectó un error, abortar el ensamblado
+        if (errores != 0) {
+            fclose(archivo);
+            return errores;
+        }
+
+        pc++;// Avanza el contador de programa
+        if (pc >= tamMat) {// Si se supera el tamaño de memoria, vuelve al inicio
+            pc = 0;
+        }
+    }
+
+    // Si nunca apareció la directiva END, reportar error
+    if (fin != 7) {
+        errores = 316;
+    }
+
+    if (errores == 0) {
+        errores = validar_referencias_etiquetas();
+    }
+
+    // Guarda la dirección final del programa
+    fin = pc;
+
+    // Restaura el estado para la ejecución
+    pc = origen;
+    acumulador = 0;
+    pre = 0;
+
+    fclose(archivo);
+    return errores;
+}
+
+int stepin(int lang, const char *line_path){
+	    errores = 0;
+	    langyacc = lang;
+	    (void)line_path;
+	    hubo_escritura_memoria = 0;
+	    ultima_direccion_escrita = -1;
+
+	    // Verifica que el PC se encuentre dentro del rango válido de memoria
+	    if (pc < 0 || pc >= tamMat) {
+	        return (errores = 210);
+	    }
+
+	    // Si se alcanzó .END (o el final histórico), no quedan instrucciones.
+	    if (pc == fin || memoria[pc].tipo == CELDA_FIN) {
+	        return 1;
+	    }
+
+	/*
+	 * El procesador ejecuta la misma palabra de 16 bits que leen LD y escriben
+	 * ST. Así una instrucción puede tratarse como dato y ejecutarse luego de ser
+	 * creada o modificada durante la ejecución.
+	 */
+	uint16_t instruccion = memoria[pc].palabra;
+	unsigned int opcode = (instruccion >> 13) & 0x7u;
+	int pc_siguiente = (pc + 1) & 0xFFFF;
+	int desplazamiento;
+	int direccion;
+
+	switch (opcode) {
+		case 0: // ADD: relativo (bit 12=0) o inmediato (bit 12=1)
+			desplazamiento = extender_signo(instruccion, 12);
+			if (instruccion & 0x1000u) {
+				modificar_acumulador(overflow(acumulador + desplazamiento));
+			} else {
+				direccion = direccion_relativa(pc, desplazamiento);
+				modificar_acumulador(overflow(acumulador + memoria[direccion].palabra));
 			}
-			set_input_from_memory(linea,line_path);
-			yyparse(); 
-			yylex();
-			if (errores!=0){
-				return errores;
+			break;
+
+		case 1: // AND: relativo (bit 12=0) o inmediato (bit 12=1)
+			desplazamiento = extender_signo(instruccion, 12);
+			if (instruccion & 0x1000u) {
+				modificar_acumulador(acumulador & desplazamiento);
+			} else {
+				direccion = direccion_relativa(pc, desplazamiento);
+				modificar_acumulador(acumulador & memoria[direccion].palabra);
 			}
-			//dato[pc] = datardo;
-			//datardo=0;
-			pc++;
-			if(pc>65535){pc=0;};
-		} else {
+			break;
+
+		case 2: // NOTA relativo o NOTB sobre el acumulador
+			if (instruccion & 0x1000u) {
+				modificar_acumulador(~acumulador);
+			} else {
+				desplazamiento = extender_signo(instruccion, 12);
+				direccion = direccion_relativa(pc, desplazamiento);
+				modificar_acumulador(~memoria[direccion].palabra);
+			}
+			break;
+
+		case 3: // LD (bit 12=0) / ST (bit 12=1)
+			desplazamiento = extender_signo(instruccion, 12);
+			direccion = direccion_relativa(pc, desplazamiento);
+			if (instruccion & 0x1000u) {
+				escribir_memoria(direccion, acumulador);
+			} else {
+				modificar_acumulador(memoria[direccion].palabra);
+			}
+			break;
+
+		case 4: { // BR: NZP + PCoffset10
+			char flags[4];
+			int indice = 0;
+			if (instruccion & 0x1000u) flags[indice++] = 'n';
+			if (instruccion & 0x0800u) flags[indice++] = 'z';
+			if (instruccion & 0x0400u) flags[indice++] = 'p';
+			flags[indice] = '\0';
+			if (compararFlags(flags)) {
+				desplazamiento = extender_signo(instruccion, 10);
+				pc_siguiente = direccion_relativa(pc, desplazamiento);
+				banderaParaBranch = 1;
+			}
 			break;
 		}
-	} while (fin != 7);
-	if (fin!=7){
-		errores=316;
-	}
-	fin=pc;
-	pc=origen;
-	acumulador = 0;
-	pre = 0;
-	fclose(archivo);
-	return errores;
-}
 
-int stepin(int lang,const char *line_path){
-	errores=0;
-	langyacc=lang;
-	char* valor;
-	valor = map_memory[pc];
-	if (pc>=0 && pc<=tamMat) {
-		if(pc!=fin){
-			if(valor!=NULL){
-				set_input_from_memory(valor,line_path);
-				yyparse();
-				yylex();
-				if (errores!=0){
-					return errores;
-				}
-				fflush(stdin);
-				pc++;
-				if(pc>65535){pc=0;};
-				printf("PC YACC: %i\n",pc);
-				return 0;
+		case 7: { // TRAP: vector de 13 bits
+			unsigned int vector = instruccion & 0x1FFFu;
+			if (vector == 0x21u) {
+				banderaParaTrapDeSalida = 1;
+			} else if (vector == 0x23u) {
+				banderaParaTrapDeEntrada = 1;
+			} else {
+				return (errores = 310);
 			}
-		} else {
-			return 1;
+			break;
 		}
-	} else{
-		errores= 210;
+
+		default:
+			return (errores = 315);
 	}
+
+	pc = pc_siguiente;
+		printf("PC YACC: %i\n", pc);
+		return 0;
 }
+//========================================	FIN FUNCIONES PRINCIPALES =========================================
+//=============================================================================================================
 
-
-/*FUNCIONES PARA EL DICCIONARIO*/
-char* get_line(int pc_line){
-  	char* line = (char*)malloc(100);
-  	strcpy(line, map_memory[pc_line]);
-  	return line;
-}
-
-char* get_etiq(int pc_line){
-	char* etiq = (char*)malloc(100);
-	for (int i = 0; i < contador_matriz_etiquets; i++) {
-		if (matriz_etiquetas_d[i] == pc_line) {
-			strcpy(etiq, matriz_etiquetas_k[i]);
-			return etiq;
-		}
-	}
-	return NULL;
-}
-
-/*FUNCIONES PARA EL DICCIONARIO*/
-
-
-#line 331 "assemble.tab.c"
+#line 502 "assemble.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -381,10 +658,11 @@ enum yysymbol_kind_t
   YYSYMBOL_prog = 23,                      /* prog  */
   YYSYMBOL_intrucciones = 24,              /* intrucciones  */
   YYSYMBOL_reservas = 25,                  /* reservas  */
-  YYSYMBOL_dato = 26,                      /* dato  */
-  YYSYMBOL_datoBR = 27,                    /* datoBR  */
-  YYSYMBOL_direccion = 28,                 /* direccion  */
-  YYSYMBOL_direccionBR = 29                /* direccionBR  */
+  YYSYMBOL_datoFill = 26,                  /* datoFill  */
+  YYSYMBOL_dato = 27,                      /* dato  */
+  YYSYMBOL_datoBR = 28,                    /* datoBR  */
+  YYSYMBOL_direccion = 29,                 /* direccion  */
+  YYSYMBOL_direccionBR = 30                /* direccionBR  */
 };
 typedef enum yysymbol_kind_t yysymbol_kind_t;
 
@@ -712,16 +990,16 @@ union yyalloc
 /* YYFINAL -- State number of the termination state.  */
 #define YYFINAL  2
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   89
+#define YYLAST   83
 
 /* YYNTOKENS -- Number of terminals.  */
 #define YYNTOKENS  22
 /* YYNNTS -- Number of nonterminals.  */
-#define YYNNTS  8
+#define YYNNTS  9
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  42
+#define YYNRULES  44
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  59
+#define YYNSTATES  61
 
 /* YYMAXUTOK -- Last valid token kind.  */
 #define YYMAXUTOK   274
@@ -772,11 +1050,11 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   293,   293,   294,   297,   303,   304,   312,   319,   325,
-     328,   334,   339,   342,   347,   350,   356,   359,   366,   373,
-     376,   383,   389,   392,   398,   404,   407,   410,   429,   432,
-     437,   441,   445,   452,   457,   464,   475,   480,   491,   498,
-     507,   518,   535
+       0,   466,   466,   467,   470,   474,   475,   483,   488,   493,
+     496,   501,   505,   508,   512,   515,   520,   523,   529,   535,
+     538,   544,   549,   552,   558,   564,   567,   570,   589,   592,
+     597,   601,   605,   613,   616,   620,   628,   633,   644,   649,
+     660,   667,   676,   687,   704
 };
 #endif
 
@@ -795,8 +1073,8 @@ static const char *const yytname[] =
   "\"end of file\"", "error", "\"invalid token\"", "ADD", "AND", "NOTA",
   "NOTB", "LD", "ST", "BR_FLAGS", "TRAP", "END", "ORIG", "FILL", "BLKW",
   "ETIQUETA", "NUMERO", "HEXA", "ERROR_NUMERO", "INVALIDO", "'\\n'", "'.'",
-  "$accept", "prog", "intrucciones", "reservas", "dato", "datoBR",
-  "direccion", "direccionBR", YY_NULLPTR
+  "$accept", "prog", "intrucciones", "reservas", "datoFill", "dato",
+  "datoBR", "direccion", "direccionBR", YY_NULLPTR
 };
 
 static const char *
@@ -806,7 +1084,7 @@ yysymbol_name (yysymbol_kind_t yysymbol)
 }
 #endif
 
-#define YYPACT_NINF (-14)
+#define YYPACT_NINF (-8)
 
 #define yypact_value_is_default(Yyn) \
   ((Yyn) == YYPACT_NINF)
@@ -820,12 +1098,13 @@ yysymbol_name (yysymbol_kind_t yysymbol)
    STATE-NUM.  */
 static const yytype_int8 yypact[] =
 {
-     -14,     5,   -14,   -14,    34,    40,    58,     1,    45,    52,
-      21,    63,    24,   -14,     7,   -13,    -4,   -14,   -14,   -14,
-     -14,   -14,   -14,   -14,   -14,   -14,   -14,   -14,   -14,   -14,
-     -14,   -14,   -14,   -14,   -14,   -14,   -14,   -14,   -14,   -14,
-     -14,    22,   -14,   -14,   -14,   -14,    75,    23,   -14,     0,
-     -14,   -14,   -14,    26,   -14,   -14,   -14,   -14,   -14
+      -8,     0,    -8,    -8,    35,    40,     1,    10,    44,    48,
+      16,    53,    19,    -8,    26,    -7,    24,    -8,    -8,    -8,
+      -8,    -8,    -8,    -8,    -8,    -8,    -8,    -8,    -8,    -8,
+      -8,    -8,    -8,    -8,    -8,    -8,    -8,    -8,    -8,    -8,
+      -8,    47,    -8,    -8,    -8,    -8,    33,    49,    -8,    66,
+      -8,    -8,    -8,    -4,    -8,    -8,    -8,    -8,    -8,    -8,
+      -8
 };
 
 /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -834,23 +1113,24 @@ static const yytype_int8 yypact[] =
 static const yytype_int8 yydefact[] =
 {
        2,     0,     1,    29,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,     6,     0,     0,     0,     9,    40,    35,
-      39,    36,     7,     8,    12,    10,    11,    14,    13,    16,
-      19,    18,    17,    22,    21,    20,    25,    42,    37,    41,
-      38,     0,    23,    24,    28,    27,     0,     0,    32,     0,
-       3,     5,    26,     0,    34,     4,    31,    30,    33
+       0,     0,     0,     6,     0,     0,     0,     9,    42,    37,
+      41,    38,     7,     8,    12,    10,    11,    14,    13,    16,
+      19,    18,    17,    22,    21,    20,    25,    44,    39,    43,
+      40,     0,    23,    24,    28,    27,     0,     0,    32,     0,
+       3,     5,    26,     0,    34,     4,    31,    30,    35,    36,
+      33
 };
 
 /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int8 yypgoto[] =
 {
-     -14,   -14,    35,   -14,    -5,   -14,    76,   -14
+      -8,    -8,    59,    -8,    -8,    34,    -8,    67,    -8
 };
 
 /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int8 yydefgoto[] =
 {
-       0,     1,    15,    16,    22,    42,    23,    43
+       0,     1,    15,    16,    60,    22,    42,    23,    43
 };
 
 /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -858,28 +1138,28 @@ static const yytype_int8 yydefgoto[] =
    number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int8 yytable[] =
 {
-      25,    56,    29,    31,    34,     2,     3,    50,     4,     5,
-       6,     7,     8,     9,    10,    11,    51,    57,    48,    49,
-      12,   -15,    36,    52,    13,     3,    14,     4,     5,     6,
-       7,     8,     9,    10,    11,    17,    37,    38,    39,    40,
-      41,    24,    19,    55,    21,    46,    30,    47,    58,    18,
-      19,    20,    21,    33,     0,    18,    19,    20,    21,    27,
-      18,    19,    20,    21,    44,     0,     0,    18,    19,    20,
-      21,     0,     0,    18,     0,    20,     0,     0,    18,     0,
-      20,    26,    28,     0,    32,    35,     0,    45,    53,    54
+       2,     3,    27,     4,     5,     6,     7,     8,     9,    10,
+      11,    29,    58,    50,    59,    12,    18,    36,    20,    13,
+       3,    14,     4,     5,     6,     7,     8,     9,    10,    11,
+     -15,    37,    38,    39,    40,    41,    17,    48,    49,    25,
+      46,    24,    31,    34,    51,    30,    53,    54,    52,    33,
+      18,    19,    20,    21,    44,    18,    19,    20,    21,    18,
+      19,    20,    21,    18,    19,    20,    21,    56,    18,    55,
+      20,    47,    26,    28,     0,    32,    35,     0,    45,     0,
+       0,     0,     0,    57
 };
 
 static const yytype_int8 yycheck[] =
 {
-       5,     1,     1,     8,     9,     0,     1,    20,     3,     4,
-       5,     6,     7,     8,     9,    10,    20,    17,    11,    12,
-      15,    20,     1,     1,    19,     1,    21,     3,     4,     5,
-       6,     7,     8,     9,    10,     1,    15,    16,    17,    18,
-      19,     1,    16,    20,    18,    21,     1,    12,    53,    15,
-      16,    17,    18,     1,    -1,    15,    16,    17,    18,     1,
-      15,    16,    17,    18,     1,    -1,    -1,    15,    16,    17,
-      18,    -1,    -1,    15,    -1,    17,    -1,    -1,    15,    -1,
-      17,     5,     6,    -1,     8,     9,    -1,    11,    13,    14
+       0,     1,     1,     3,     4,     5,     6,     7,     8,     9,
+      10,     1,    16,    20,    18,    15,    15,     1,    17,    19,
+       1,    21,     3,     4,     5,     6,     7,     8,     9,    10,
+      20,    15,    16,    17,    18,    19,     1,    11,    12,     5,
+      21,     1,     8,     9,    20,     1,    13,    14,     1,     1,
+      15,    16,    17,    18,     1,    15,    16,    17,    18,    15,
+      16,    17,    18,    15,    16,    17,    18,     1,    15,    20,
+      17,    12,     5,     6,    -1,     8,     9,    -1,    11,    -1,
+      -1,    -1,    -1,    17
 };
 
 /* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
@@ -888,10 +1168,11 @@ static const yytype_int8 yystos[] =
 {
        0,    23,     0,     1,     3,     4,     5,     6,     7,     8,
        9,    10,    15,    19,    21,    24,    25,     1,    15,    16,
-      17,    18,    26,    28,     1,    26,    28,     1,    28,     1,
-       1,    26,    28,     1,    26,    28,     1,    15,    16,    17,
-      18,    19,    27,    29,     1,    28,    21,    24,    11,    12,
-      20,    20,     1,    13,    14,    20,     1,    17,    26
+      17,    18,    27,    29,     1,    27,    29,     1,    29,     1,
+       1,    27,    29,     1,    27,    29,     1,    15,    16,    17,
+      18,    19,    28,    30,     1,    29,    21,    24,    11,    12,
+      20,    20,     1,    13,    14,    20,     1,    17,    16,    18,
+      26
 };
 
 /* YYR1[RULE-NUM] -- Symbol kind of the left-hand side of rule RULE-NUM.  */
@@ -901,7 +1182,7 @@ static const yytype_int8 yyr1[] =
       24,    24,    24,    24,    24,    24,    24,    24,    24,    24,
       24,    24,    24,    24,    24,    24,    24,    24,    24,    24,
       25,    25,    25,    25,    25,    26,    26,    27,    27,    28,
-      28,    29,    29
+      28,    29,    29,    30,    30
 };
 
 /* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
@@ -911,7 +1192,7 @@ static const yytype_int8 yyr2[] =
        2,     2,     2,     2,     2,     1,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     3,     2,     2,     1,
        3,     3,     2,     4,     3,     1,     1,     1,     1,     1,
-       1,     1,     1
+       1,     1,     1,     1,     1
 };
 
 
@@ -1375,240 +1656,227 @@ yyreduce:
   switch (yyn)
     {
   case 3: /* prog: prog intrucciones '\n'  */
-#line 294 "assemble.y"
-                                  {printf("\n");
+#line 467 "assemble.y"
+                                          {printf("\n");
 		//ACA SAQUE EL IF Y EL GETCHAR
 	}
-#line 1383 "assemble.tab.c"
+#line 1558 "assemble.tab.c"
     break;
 
   case 4: /* prog: prog ETIQUETA intrucciones '\n'  */
-#line 297 "assemble.y"
+#line 470 "assemble.y"
                                             {if(pre==1){
-		matriz_etiquetas_k[contador_matriz_etiquets]=(yyvsp[-2].str);
-		matriz_etiquetas_d[contador_matriz_etiquets]=pc;
-		contador_matriz_etiquets++;
+		registrar_etiqueta((yyvsp[-2].str), pc);
 		}
 	}
-#line 1394 "assemble.tab.c"
+#line 1567 "assemble.tab.c"
     break;
 
   case 5: /* prog: prog reservas '\n'  */
-#line 303 "assemble.y"
+#line 474 "assemble.y"
                                    {}
-#line 1400 "assemble.tab.c"
+#line 1573 "assemble.tab.c"
     break;
 
   case 6: /* prog: prog INVALIDO  */
-#line 304 "assemble.y"
+#line 475 "assemble.y"
                               {
 		if(pre==1){
 			errores= 315;
 		}
 	}
-#line 1410 "assemble.tab.c"
+#line 1583 "assemble.tab.c"
     break;
 
   case 7: /* intrucciones: ADD dato  */
-#line 312 "assemble.y"
+#line 483 "assemble.y"
                                     {if(pre==0){
-		acumulador = acumulador + A;
-		nzpeador();
 		printf("REGISTRO: %i\n",acumulador);
 		acumulador = overflow(acumulador);
 		}
 	}
-#line 1422 "assemble.tab.c"
+#line 1593 "assemble.tab.c"
     break;
 
   case 8: /* intrucciones: ADD direccion  */
-#line 319 "assemble.y"
+#line 488 "assemble.y"
                                     {if(pre==0){
-		acumulador = acumulador + dato[direccionador];
-		nzpeador();
+		modificar_acumulador(acumulador + memoria[direccionador].palabra);
 		printf("REGISTRO: %i\n",acumulador);
 		acumulador = overflow(acumulador);
 	}}
-#line 1433 "assemble.tab.c"
+#line 1603 "assemble.tab.c"
     break;
 
   case 9: /* intrucciones: ADD error  */
-#line 325 "assemble.y"
+#line 493 "assemble.y"
                                                         {if(pre==1){
 			errores= 300;
 	}}
-#line 1441 "assemble.tab.c"
+#line 1611 "assemble.tab.c"
     break;
 
   case 10: /* intrucciones: AND dato  */
-#line 328 "assemble.y"
+#line 496 "assemble.y"
                                     {if(pre==0){
-		acumulador = acumulador & A;
-		nzpeador();
+		modificar_acumulador(acumulador & A);
 		printf("REGISTRO: %i\n",acumulador);
 	}
 	}
-#line 1452 "assemble.tab.c"
+#line 1621 "assemble.tab.c"
     break;
 
   case 11: /* intrucciones: AND direccion  */
-#line 334 "assemble.y"
+#line 501 "assemble.y"
                                     {if(pre==0){
-		acumulador = acumulador & dato[direccionador];
-		nzpeador();
+		modificar_acumulador(acumulador & memoria[direccionador].palabra);
 		printf("REGISTRO: %i\n",acumulador);
 	}}
-#line 1462 "assemble.tab.c"
+#line 1630 "assemble.tab.c"
     break;
 
   case 12: /* intrucciones: AND error  */
-#line 339 "assemble.y"
+#line 505 "assemble.y"
                                                         {if(pre==1){
 			errores= 300;
 	}}
-#line 1470 "assemble.tab.c"
+#line 1638 "assemble.tab.c"
     break;
 
   case 13: /* intrucciones: NOTA direccion  */
-#line 342 "assemble.y"
+#line 508 "assemble.y"
                                     {if(pre==0){
-		acumulador = ~dato[direccionador];
-		nzpeador();
+		modificar_acumulador(~memoria[direccionador].palabra);
 		printf("REGISTRO: %i\n",acumulador);
 	}}
-#line 1480 "assemble.tab.c"
+#line 1647 "assemble.tab.c"
     break;
 
   case 14: /* intrucciones: NOTA error  */
-#line 347 "assemble.y"
+#line 512 "assemble.y"
                                                         {if(pre==1){
 			errores= 303;
 	}}
-#line 1488 "assemble.tab.c"
+#line 1655 "assemble.tab.c"
     break;
 
   case 15: /* intrucciones: NOTB  */
-#line 350 "assemble.y"
+#line 515 "assemble.y"
                                     {if(pre==0){
-		acumulador = ~acumulador;
-		nzpeador();
+		modificar_acumulador(~acumulador);
 		printf("REGISTRO: %i\n",acumulador);
 
 	}}
-#line 1499 "assemble.tab.c"
+#line 1665 "assemble.tab.c"
     break;
 
   case 16: /* intrucciones: NOTB error  */
-#line 356 "assemble.y"
+#line 520 "assemble.y"
                                                         {if(pre==1){
 				errores= 301;
 	}}
-#line 1507 "assemble.tab.c"
+#line 1673 "assemble.tab.c"
     break;
 
   case 17: /* intrucciones: LD direccion  */
-#line 359 "assemble.y"
+#line 523 "assemble.y"
                                     {
 		if(pre==0){
-			acumulador = dato[direccionador];
-			nzpeador();
+			modificar_acumulador(memoria[direccionador].palabra);
 			printf("REGISTRO: %i\n",acumulador);
 		}
 	}
-#line 1519 "assemble.tab.c"
+#line 1684 "assemble.tab.c"
     break;
 
   case 18: /* intrucciones: LD dato  */
-#line 366 "assemble.y"
+#line 529 "assemble.y"
                                                         {
 		if(pre==0){
-			acumulador = dato[pc+1+A];
-			nzpeador();
+			modificar_acumulador(memoria[(pc+1+A) & 0xFFFF].palabra);
 			printf("REGISTRO: %i\n",acumulador);
 		}
 	}
-#line 1531 "assemble.tab.c"
+#line 1695 "assemble.tab.c"
     break;
 
   case 19: /* intrucciones: LD error  */
-#line 373 "assemble.y"
+#line 535 "assemble.y"
                                                         {if(pre==1){
 				errores= 300;
 	}}
-#line 1539 "assemble.tab.c"
+#line 1703 "assemble.tab.c"
     break;
 
   case 20: /* intrucciones: ST direccion  */
-#line 376 "assemble.y"
+#line 538 "assemble.y"
                                     {
 		if(pre==0){
-			//strcpy(map_memory[direccionador], "");
-			dato[direccionador] = acumulador;
+			escribir_memoria(direccionador, acumulador);
 		}
 		
 	}
-#line 1551 "assemble.tab.c"
+#line 1714 "assemble.tab.c"
     break;
 
   case 21: /* intrucciones: ST dato  */
-#line 383 "assemble.y"
+#line 544 "assemble.y"
                                                         {
 		if(pre==0){
-			//strcpy(map_memory[pc+1+A], "");
-			dato[pc+1+A] = acumulador;
+			escribir_memoria((pc+1+A) & 0xFFFF, acumulador);
 		}
 	}
-#line 1562 "assemble.tab.c"
+#line 1724 "assemble.tab.c"
     break;
 
   case 22: /* intrucciones: ST error  */
-#line 389 "assemble.y"
+#line 549 "assemble.y"
                                                         {if(pre==1){
 				errores= 300;
 	}}
-#line 1570 "assemble.tab.c"
+#line 1732 "assemble.tab.c"
     break;
 
   case 23: /* intrucciones: BR_FLAGS datoBR  */
-#line 392 "assemble.y"
+#line 552 "assemble.y"
                                       {if(pre==0){
 		if(compararFlags((yyvsp[-1].str))){
 				pc=pc+A;
 				banderaParaBranch=1;
 		}
 	}}
-#line 1581 "assemble.tab.c"
+#line 1743 "assemble.tab.c"
     break;
 
   case 24: /* intrucciones: BR_FLAGS direccionBR  */
-#line 398 "assemble.y"
+#line 558 "assemble.y"
                                       {if(pre==0){
 		if(compararFlags((yyvsp[-1].str))){
 			pc = direccionador - 1;
 			banderaParaBranch=1;
 		}
 	}}
-#line 1592 "assemble.tab.c"
+#line 1754 "assemble.tab.c"
     break;
 
   case 25: /* intrucciones: BR_FLAGS error  */
-#line 404 "assemble.y"
+#line 564 "assemble.y"
                                                         {if(pre==1){
 			errores= 300;
 	}}
-#line 1600 "assemble.tab.c"
+#line 1762 "assemble.tab.c"
     break;
 
   case 26: /* intrucciones: BR_FLAGS INVALIDO error  */
-#line 407 "assemble.y"
+#line 567 "assemble.y"
                                                                 {if(pre==1){
 			errores= 300;
 	}}
-#line 1608 "assemble.tab.c"
+#line 1770 "assemble.tab.c"
     break;
 
   case 27: /* intrucciones: TRAP direccion  */
-#line 410 "assemble.y"
+#line 570 "assemble.y"
                                     {if(pre==0){
 		if((int)direccionador==33){
 			//ESTO ES TRAP 21 -> OUT
@@ -1628,77 +1896,95 @@ yyreduce:
 					errores= 310;
 			}
 		}}
-#line 1632 "assemble.tab.c"
+#line 1794 "assemble.tab.c"
     break;
 
   case 28: /* intrucciones: TRAP error  */
-#line 429 "assemble.y"
+#line 589 "assemble.y"
                                                         {if(pre==1){
 				errores= 310;
 	}}
-#line 1640 "assemble.tab.c"
+#line 1802 "assemble.tab.c"
     break;
 
   case 29: /* intrucciones: error  */
-#line 432 "assemble.y"
+#line 592 "assemble.y"
                         {if(pre==1){
 				errores= 315;
 	}}
-#line 1648 "assemble.tab.c"
+#line 1810 "assemble.tab.c"
     break;
 
   case 30: /* reservas: '.' ORIG HEXA  */
-#line 437 "assemble.y"
+#line 597 "assemble.y"
                                    {if(pre==1){
-		nofinoseainicio = 0;
-		origen=strtol((yyvsp[0].str)+1, '\0',16);
+		codigo_inicio = 0;
+		origen=strtol((yyvsp[0].str)+1, NULL,16);
 	}}
-#line 1657 "assemble.tab.c"
+#line 1819 "assemble.tab.c"
     break;
 
   case 31: /* reservas: '.' ORIG error  */
-#line 441 "assemble.y"
+#line 601 "assemble.y"
                                     {if(pre==1){
         	errores= 311;
 		}
 		}
-#line 1666 "assemble.tab.c"
+#line 1828 "assemble.tab.c"
     break;
 
   case 32: /* reservas: '.' END  */
-#line 445 "assemble.y"
+#line 605 "assemble.y"
                                         {if(pre==1){
 		fin= 7; //tengo tiempo, para saber
+		memoria[pc].tipo = CELDA_FIN;
 		}else{
 		fin= 7;
 			errores = 1;
 	}
 	}
-#line 1678 "assemble.tab.c"
+#line 1841 "assemble.tab.c"
     break;
 
-  case 33: /* reservas: ETIQUETA '.' FILL dato  */
-#line 452 "assemble.y"
-                                        {if(pre==1){
-		matriz_etiquetas_k[contador_matriz_etiquets]=(yyvsp[-3].str);
-		matriz_etiquetas_d[contador_matriz_etiquets]=pc;
-		contador_matriz_etiquets++;
+  case 33: /* reservas: ETIQUETA '.' FILL datoFill  */
+#line 613 "assemble.y"
+                                            {if(pre==1){
+		registrar_etiqueta((yyvsp[-3].str), pc);
 	}}
-#line 1688 "assemble.tab.c"
+#line 1849 "assemble.tab.c"
     break;
 
   case 34: /* reservas: ETIQUETA '.' BLKW  */
-#line 457 "assemble.y"
+#line 616 "assemble.y"
                                                  {if(pre==1){
-		matriz_etiquetas_k[contador_matriz_etiquets]=(yyvsp[-2].str);
-		matriz_etiquetas_d[contador_matriz_etiquets]=pc;
-		contador_matriz_etiquets++;
+		registrar_etiqueta((yyvsp[-2].str), pc);
 	}}
-#line 1698 "assemble.tab.c"
+#line 1857 "assemble.tab.c"
     break;
 
-  case 35: /* dato: NUMERO  */
-#line 464 "assemble.y"
+  case 35: /* datoFill: NUMERO  */
+#line 620 "assemble.y"
+               {
+		if(pre==1) {
+			datardo = atoi((yyvsp[0].str)+1);
+			if (datardo > 32767 || datardo < -32768) {
+				errores = 212;
+			}
+		}
+	}
+#line 1870 "assemble.tab.c"
+    break;
+
+  case 36: /* datoFill: ERROR_NUMERO  */
+#line 628 "assemble.y"
+                       {
+		errores = 312;
+	}
+#line 1878 "assemble.tab.c"
+    break;
+
+  case 37: /* dato: NUMERO  */
+#line 633 "assemble.y"
                {
         if(pre==0) {
             A = atoi((yyvsp[0].str)+1);
@@ -1710,19 +1996,19 @@ yyreduce:
             }
         }
     }
-#line 1714 "assemble.tab.c"
+#line 1894 "assemble.tab.c"
     break;
 
-  case 36: /* dato: ERROR_NUMERO  */
-#line 475 "assemble.y"
+  case 38: /* dato: ERROR_NUMERO  */
+#line 644 "assemble.y"
                    {
         	errores= 312;
     }
-#line 1722 "assemble.tab.c"
+#line 1902 "assemble.tab.c"
     break;
 
-  case 37: /* datoBR: NUMERO  */
-#line 480 "assemble.y"
+  case 39: /* datoBR: NUMERO  */
+#line 649 "assemble.y"
                {
         if(pre==0) {
             A = atoi((yyvsp[0].str)+1);
@@ -1734,33 +2020,33 @@ yyreduce:
             }
         }
     }
-#line 1738 "assemble.tab.c"
+#line 1918 "assemble.tab.c"
     break;
 
-  case 38: /* datoBR: ERROR_NUMERO  */
-#line 491 "assemble.y"
+  case 40: /* datoBR: ERROR_NUMERO  */
+#line 660 "assemble.y"
                    {
         	errores= 312;
     }
-#line 1746 "assemble.tab.c"
+#line 1926 "assemble.tab.c"
     break;
 
-  case 39: /* direccion: HEXA  */
-#line 498 "assemble.y"
+  case 41: /* direccion: HEXA  */
+#line 667 "assemble.y"
                                   {
-		if(pre==1){direccionador=strtol((yyvsp[0].str)+1, '\0',16);
+		if(pre==1){direccionador=strtol((yyvsp[0].str)+1, NULL,16);
 		if (direccionador>65536 || direccionador<0) { // agregue || direccionador<0
 			errores= 211;
 		}
 		}
-		if(pre==0){direccionador=strtol((yyvsp[0].str)+1, '\0',16);}
+		if(pre==0){direccionador=strtol((yyvsp[0].str)+1, NULL,16);}
 		
 	}
-#line 1760 "assemble.tab.c"
+#line 1940 "assemble.tab.c"
     break;
 
-  case 40: /* direccion: ETIQUETA  */
-#line 507 "assemble.y"
+  case 42: /* direccion: ETIQUETA  */
+#line 676 "assemble.y"
                                        {
 		if(pre==0){
 			direccionador = buscarDireccionEtiqueta((yyvsp[0].str));
@@ -1770,13 +2056,13 @@ yyreduce:
 			}
 		}
 	}
-#line 1774 "assemble.tab.c"
+#line 1954 "assemble.tab.c"
     break;
 
-  case 41: /* direccionBR: HEXA  */
-#line 518 "assemble.y"
+  case 43: /* direccionBR: HEXA  */
+#line 687 "assemble.y"
                                   {
-		if(pre==1){direccionador=strtol((yyvsp[0].str)+1, '\0',16);
+		if(pre==1){direccionador=strtol((yyvsp[0].str)+1, NULL,16);
 		
 		if (direccionador>65536 || direccionador<0) { // agregue || direccionador<0
 				errores= 211;
@@ -1789,14 +2075,14 @@ yyreduce:
 			}
 		}
 		}
-		if(pre==0){direccionador=strtol((yyvsp[0].str)+1, '\0',16);}
+		if(pre==0){direccionador=strtol((yyvsp[0].str)+1, NULL,16);}
 		
 	}
-#line 1796 "assemble.tab.c"
+#line 1976 "assemble.tab.c"
     break;
 
-  case 42: /* direccionBR: ETIQUETA  */
-#line 535 "assemble.y"
+  case 44: /* direccionBR: ETIQUETA  */
+#line 704 "assemble.y"
                                        {
 		if(pre==0){
 			direccionador = buscarDireccionEtiqueta((yyvsp[0].str));
@@ -1806,11 +2092,11 @@ yyreduce:
 			}
 		}
 	}
-#line 1810 "assemble.tab.c"
+#line 1990 "assemble.tab.c"
     break;
 
 
-#line 1814 "assemble.tab.c"
+#line 1994 "assemble.tab.c"
 
       default: break;
     }
@@ -2003,11 +2289,11 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 544 "assemble.y"
+#line 713 "assemble.y"
 
 	
 	void yyerror(const char *msje) {
-	printf("%s\n", msje);
+		printf("%s\n", msje);
 	}
 	
 	int main(){

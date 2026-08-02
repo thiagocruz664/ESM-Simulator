@@ -79,7 +79,7 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 278 "assemble.y"
+#line 449 "assemble.y"
 
 	int intval;
 	char *str;

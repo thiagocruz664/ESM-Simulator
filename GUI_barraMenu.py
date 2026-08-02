@@ -28,7 +28,7 @@ class BarraMenu:
     def __init__(self, ventana, lang, theme, zoom_value,
              nuevo_archivo, abrir_archivo, guardar_archivo,
              guardar_como, assembly, run, stepin, reset,
-             toggle_mode, spanish, english, about,
+             toggle_mode, spanish, english, help_callback, about,
              gab, gah, ajustar_zoom):
         """
             Inicializa la barra de menú principal de la aplicación
@@ -70,6 +70,8 @@ class BarraMenu:
                     Función que cambia el idioma al español
                 english : function
                     Función que cambia el idioma al inglés
+                help_callback : function
+                    Función que muestra la ayuda de uso y programación
                 about : function
                     Función que muestra la información del programa
                 gab : function
@@ -93,6 +95,7 @@ class BarraMenu:
         self.toggle_mode = toggle_mode
         self.spanish = spanish
         self.english = english
+        self.help_callback = help_callback
         self.about = about
         self.guardar_archivo_binario = gab
         self.guardar_archivo_hexa = gah
@@ -290,6 +293,8 @@ class BarraMenu:
             self.settings_menu_buttons["mode"].pack(fill="x")
             self.settings_menu_buttons["lang"]=tk.Button(self.settings_menu_frame, text="🌐 Lenguaje", anchor="w", command=self.toggle_idioma_menu,bg=self.theme["button_bg"],fg=self.theme["button_fg"],activebackground=self.theme["menu_active_bg"],activeforeground=self.theme["menu_active_fg"],borderwidth=0, relief="flat",highlightthickness=0)
             self.settings_menu_buttons["lang"].pack(fill="x")
+            self.settings_menu_buttons["help"]=tk.Button(self.settings_menu_frame, text="❓ Ayuda", anchor="w", command=self.help_callback,bg=self.theme["button_bg"],fg=self.theme["button_fg"],activebackground=self.theme["menu_active_bg"],activeforeground=self.theme["menu_active_fg"],borderwidth=0, relief="flat",highlightthickness=0)
+            self.settings_menu_buttons["help"].pack(fill="x")
             self.settings_menu_buttons["about"]=tk.Button(self.settings_menu_frame,text="⚠️ Informacion", anchor="w", command=self.about,bg=self.theme["button_bg"],fg=self.theme["button_fg"],activebackground=self.theme["menu_active_bg"],activeforeground=self.theme["menu_active_fg"],borderwidth=0, relief="flat",highlightthickness=0)
             self.settings_menu_buttons["about"].pack(fill="x")
         elif self.lang == "en":
@@ -297,6 +302,8 @@ class BarraMenu:
             self.settings_menu_buttons["mode"].pack(fill="x")
             self.settings_menu_buttons["lang"]=tk.Button(self.settings_menu_frame, text="🌐 Language", anchor="w", command=self.toggle_idioma_menu,bg=self.theme["button_bg"],fg=self.theme["button_fg"],activebackground=self.theme["menu_active_bg"],activeforeground=self.theme["menu_active_fg"],borderwidth=0, relief="flat",highlightthickness=0)
             self.settings_menu_buttons["lang"].pack(fill="x")
+            self.settings_menu_buttons["help"]=tk.Button(self.settings_menu_frame, text="❓ Help", anchor="w", command=self.help_callback,bg=self.theme["button_bg"],fg=self.theme["button_fg"],activebackground=self.theme["menu_active_bg"],activeforeground=self.theme["menu_active_fg"],borderwidth=0, relief="flat",highlightthickness=0)
+            self.settings_menu_buttons["help"].pack(fill="x")
             self.settings_menu_buttons["about"]=tk.Button(self.settings_menu_frame,text="⚠️ About", anchor="w", command=self.about,bg=self.theme["button_bg"],fg=self.theme["button_fg"],activebackground=self.theme["menu_active_bg"],activeforeground=self.theme["menu_active_fg"],borderwidth=0, relief="flat",highlightthickness=0)
             self.settings_menu_buttons["about"].pack(fill="x")
         

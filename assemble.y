@@ -19,23 +19,41 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 //#define YYDEBUG 1
 #include <ctype.h>
 #include "assemble.tab.h"
 int yylex(void);
 void yyerror(const char *s);
 	
-//MAPA MEMORIA
+// MEMORIA UNIFICADA
 #define max_caracter 100
 #define tamMat 65536
-char map_memory[tamMat][max_caracter];
-int dato[tamMat];
+
+typedef enum {
+	CELDA_VACIA = 0,
+	CELDA_PALABRA = 1,
+	CELDA_FIN = 2
+} TipoCelda;
+
+typedef struct {
+	uint16_t palabra;
+	char linea[max_caracter];
+	char etiqueta[max_caracter];
+	uint8_t tipo;
+} CeldaMemoria;
+
+/*
+ * Una única celda conserva la palabra de 16 bits que consume el procesador y
+ * los metadatos que necesitan el ensamblador y la GUI. Las instrucciones y
+ * los datos comparten exactamente el mismo campo `palabra`.
+ */
+CeldaMemoria memoria[tamMat];
 int acumulador, pc, pre, etiqueta_key, A,fin,codigo_inicio,origen,datardo;
 
-//MAPA ETIQUETAS
-char *matriz_etiquetas_k[tamMat] ={0};
-int matriz_etiquetas_d[tamMat] = {0};
-int contador_matriz_etiquets = 0;
+/* Estado de la última escritura, utilizado por Python para refrescar la GUI. */
+int hubo_escritura_memoria = 0;
+int ultima_direccion_escrita = -1;
 
 char* data, *ALUFlags="z";
 extern FILE *yyin; // Declaración de yyin
@@ -71,7 +89,7 @@ void modificar_acumulador(int nuevo_valor){
 int compararFlags(char *flagsIns){
 	//Utilizada para los BRANCHES, compara los flads de la ALU con los flags de la instruccion,
 	//si hay coincidencia devuelve 1, sino 0
-	for(int i=0; i<strlen(flagsIns);i++){
+	for(size_t i=0; i<strlen(flagsIns);i++){
 		if(ALUFlags[0]==flagsIns[i]){
 			return 1;
 		}
@@ -93,6 +111,17 @@ int overflow(int value) {
 	while (value < -32768) { value += 65536;
 	}
 	return value;
+}
+
+int extender_signo(uint16_t valor, int bits) {
+	uint16_t mascara = (uint16_t)((1u << bits) - 1u);
+	uint16_t signo = (uint16_t)(1u << (bits - 1));
+	valor &= mascara;
+	return (valor & signo) ? (int)(valor | (uint16_t)(~mascara)) : (int)valor;
+}
+
+int direccion_relativa(int base, int desplazamiento) {
+	return (base + 1 + desplazamiento) & 0xFFFF;
 }
 //========================================	FIN FUNCIONES DE OPERACION ========================================
 //=============================================================================================================
@@ -121,27 +150,27 @@ void set_input_from_memory(const char* linea,const char *line_path) {
 
 char* get_line(int pc_line){
 	// Esta funcion devuelve la linea de codigo que se encuentra en la posicion de memoria indicada por pc_line
-  	char* line = (char*)malloc(100);
-  	strcpy(line, map_memory[pc_line]);
-  	return line;
+	if (pc_line < 0 || pc_line >= tamMat) {
+		return NULL;
+	}
+	return memoria[pc_line].linea;
 }
 
 char* get_etiq(int pc_line){
 	// Esta funcion devuelve la etiqueta que se encuentra en la posicion de memoria indicada por pc_line
-	char* etiq = (char*)malloc(100);
-	for (int i = 0; i < contador_matriz_etiquets; i++) {
-		if (matriz_etiquetas_d[i] == pc_line) {
-			strcpy(etiq, matriz_etiquetas_k[i]);
-			return etiq;
-		}
+	if (pc_line < 0 || pc_line >= tamMat || memoria[pc_line].etiqueta[0] == '\0') {
+		return NULL;
 	}
-	return NULL;
+	return memoria[pc_line].etiqueta;
 }
 
 int buscarDireccionEtiqueta(char *etiqueta){
-	for(int i=0; i<contador_matriz_etiquets;i++){
-		if(strcmp(matriz_etiquetas_k[i],etiqueta)==0){
-			return matriz_etiquetas_d[i];
+	if (etiqueta == NULL) {
+		return -1;
+	}
+	for(int i=0; i<tamMat; i++){
+		if(memoria[i].etiqueta[0] != '\0' && strcmp(memoria[i].etiqueta,etiqueta)==0){
+			return i;
 		}
 	}
 	return -1;
@@ -149,16 +178,148 @@ int buscarDireccionEtiqueta(char *etiqueta){
 
 int buscarDato(char *etiqueta){
 	int dir=buscarDireccionEtiqueta(etiqueta);
-	return dato[dir];
+	return dir >= 0 ? memoria[dir].palabra : 0;
+}
+
+void registrar_etiqueta(const char *etiqueta, int direccion){
+	if (etiqueta == NULL || direccion < 0 || direccion >= tamMat) {
+		return;
+	}
+	strncpy(memoria[direccion].etiqueta, etiqueta, max_caracter - 1);
+	memoria[direccion].etiqueta[max_caracter - 1] = '\0';
+}
+
+/*
+ * Comprueba las referencias simbolicas una vez finalizada la primera pasada.
+ * En ese momento ya se registraron tambien las etiquetas declaradas mas
+ * adelante, por lo que solo se rechazan los simbolos realmente inexistentes.
+ */
+int validar_referencias_etiquetas(void){
+	for (int direccion = 0; direccion < tamMat; direccion++) {
+		if (memoria[direccion].linea[0] == '\0') {
+			continue;
+		}
+
+		char copia[max_caracter];
+		strncpy(copia, memoria[direccion].linea, max_caracter - 1);
+		copia[max_caracter - 1] = '\0';
+
+		char *token = strtok(copia, " \t\r\n");
+		if (token == NULL) {
+			continue;
+		}
+
+		/* Si la celda tiene etiqueta, el segundo token es la operacion. */
+		if (memoria[direccion].etiqueta[0] != '\0' &&
+			strcmp(token, memoria[direccion].etiqueta) == 0) {
+			token = strtok(NULL, " \t\r\n");
+			if (token == NULL) {
+				continue;
+			}
+		}
+
+		char *operando = NULL;
+		if (strcmp(token, "ADD") == 0 || strcmp(token, "AND") == 0 ||
+			strcmp(token, "NOTA") == 0 || strcmp(token, "LD") == 0 ||
+			strcmp(token, "ST") == 0) {
+			operando = strtok(NULL, " \t\r\n");
+		} else if (strcmp(token, "BR") == 0) {
+			/* Sintaxis separada: BR nzp ETIQUETA. */
+			(void)strtok(NULL, " \t\r\n");
+			operando = strtok(NULL, " \t\r\n");
+		} else if (strncmp(token, "BR", 2) == 0) {
+			/* Sintaxis compacta: BRnzp ETIQUETA. */
+			operando = strtok(NULL, " \t\r\n");
+		}
+
+		if (operando != NULL && operando[0] != '#' && operando[0] != 'x' &&
+			buscarDireccionEtiqueta(operando) == -1) {
+			return 314;
+		}
+	}
+	return 0;
+}
+
+/*
+ * .FILL no necesita una etiqueta. Se procesa antes del parser para mantener
+ * compatibilidad tanto con la forma historica "ETQ .FILL #n" como con
+ * ".FILL #n". Devuelve 1 si la linea era un .FILL sin etiqueta.
+ */
+int procesar_fill_sin_etiqueta(const char *linea){
+	const char *cursor = linea;
+	while (*cursor != '\0' && isspace((unsigned char)*cursor)) {
+		cursor++;
+	}
+
+	if (strncmp(cursor, ".FILL", 5) != 0 ||
+		(cursor[5] != '\0' && !isspace((unsigned char)cursor[5]))) {
+		return 0;
+	}
+
+	cursor += 5;
+	while (*cursor != '\0' && isspace((unsigned char)*cursor)) {
+		cursor++;
+	}
+	if (*cursor != '#') {
+		errores = 312;
+		return 1;
+	}
+
+	char *fin_numero = NULL;
+	long valor = strtol(cursor + 1, &fin_numero, 10);
+	if (fin_numero == cursor + 1) {
+		errores = 312;
+		return 1;
+	}
+	while (*fin_numero != '\0' && isspace((unsigned char)*fin_numero)) {
+		fin_numero++;
+	}
+	if (*fin_numero != '\0') {
+		errores = 315;
+		return 1;
+	}
+	if (valor < -32768 || valor > 32767) {
+		errores = 212;
+		return 1;
+	}
+
+	memoria[pc].palabra = (uint16_t)((int)valor & 0xFFFF);
+	memoria[pc].tipo = CELDA_PALABRA;
+	return 1;
 }
 
 void reemplazar_linea_st(char *nueva_linea, int pc_reemplazo){
-	strcpy(map_memory[pc_reemplazo], nueva_linea);
+	if (nueva_linea == NULL || pc_reemplazo < 0 || pc_reemplazo >= tamMat) {
+		return;
+	}
+	strncpy(memoria[pc_reemplazo].linea, nueva_linea, max_caracter - 1);
+	memoria[pc_reemplazo].linea[max_caracter - 1] = '\0';
 }
 
 void modificar_matriz_dato(int nuevo_dato, int pc_mod){
-	dato[pc_mod] = nuevo_dato;
-	printf("SE COLOCO EL DATO %i en la posicion %i\n",dato[pc_mod],pc_mod);
+	if (pc_mod < 0 || pc_mod >= tamMat) {
+		return;
+	}
+	memoria[pc_mod].palabra = (uint16_t)(nuevo_dato & 0xFFFF);
+	memoria[pc_mod].tipo = CELDA_PALABRA;
+	printf("SE COLOCO LA PALABRA %u en la posicion %i\n",memoria[pc_mod].palabra,pc_mod);
+}
+
+unsigned int leer_memoria(int direccion){
+	if (direccion < 0 || direccion >= tamMat) {
+		return 0;
+	}
+	return memoria[direccion].palabra;
+}
+
+void escribir_memoria(int direccion, int valor){
+	if (direccion < 0 || direccion >= tamMat) {
+		return;
+	}
+	memoria[direccion].palabra = (uint16_t)(valor & 0xFFFF);
+	memoria[direccion].tipo = CELDA_PALABRA;
+	hubo_escritura_memoria = 1;
+	ultima_direccion_escrita = direccion;
 }
 //========================================	FIN FUNCIONES DE MEMORIA ========================================
 //===========================================================================================================
@@ -169,8 +330,7 @@ void modificar_matriz_dato(int nuevo_dato, int pc_mod){
 //========================================	FUNCIONES PRINCIPALES ========================================
 void reset() {
 	// Reinicia todas las variables y estructuras de datos a sus valores iniciales
-    memset(map_memory, 0, sizeof(map_memory));
-    memset(dato, 0, sizeof(dato));
+	    memset(memoria, 0, sizeof(memoria));
     acumulador = 0;
     pc = 0;
     pre = 0;
@@ -180,11 +340,8 @@ void reset() {
 	codigo_inicio = 7;
     origen = 0;
     datardo = 0;
-    for (int i = 0; i < tamMat; i++) {
-        matriz_etiquetas_k[i] = NULL; // Reiniciar punteros
-        matriz_etiquetas_d[i] = 0; // Reiniciar enteros
-    }
-    contador_matriz_etiquets = 0;
+	    hubo_escritura_memoria = 0;
+	    ultima_direccion_escrita = -1;
     data = NULL;
     ALUFlags = "z";
     direccionador = 0;
@@ -242,13 +399,17 @@ int assemble(int lang, const char *file_path, const char *line_path){
 
         // Guarda una copia del código fuente para depuración.
         if (pc < tamMat) {
-            strcpy(map_memory[pc], linea);
+	            strncpy(memoria[pc].linea, linea, max_caracter - 1);
+	            memoria[pc].linea[max_caracter - 1] = '\0';
         }
 
-        // Envía la línea al analizador léxico/sintáctico
-        set_input_from_memory(linea, line_path);
-        yyparse();
-        yylex();
+        // .FILL puede reservar una palabra sin requerir una etiqueta previa.
+        if (!procesar_fill_sin_etiqueta(linea)) {
+            // Envía el resto de las líneas al analizador léxico/sintáctico
+            set_input_from_memory(linea, line_path);
+            yyparse();
+            yylex();
+        }
 
         // Si el parser detectó un error, abortar el ensamblado
         if (errores != 0) {
@@ -267,6 +428,10 @@ int assemble(int lang, const char *file_path, const char *line_path){
         errores = 316;
     }
 
+    if (errores == 0) {
+        errores = validar_referencias_etiquetas();
+    }
+
     // Guarda la dirección final del programa
     fin = pc;
 
@@ -280,43 +445,108 @@ int assemble(int lang, const char *file_path, const char *line_path){
 }
 
 int stepin(int lang, const char *line_path){
-    errores = 0;
-    langyacc = lang;
+	    errores = 0;
+	    langyacc = lang;
+	    (void)line_path;
+	    hubo_escritura_memoria = 0;
+	    ultima_direccion_escrita = -1;
 
-    // Verifica que el PC se encuentre dentro del rango válido de memoria
-    if (pc < 0 || pc >= tamMat) {
-        return (errores = 210);
-    }
+	    // Verifica que el PC se encuentre dentro del rango válido de memoria
+	    if (pc < 0 || pc >= tamMat) {
+	        return (errores = 210);
+	    }
 
-    // Si se alcanzó el final del programa, informa que no quedan instrucciones
-    if (pc == fin) {
-        return 1;
-    }
+	    // Si se alcanzó .END (o el final histórico), no quedan instrucciones.
+	    if (pc == fin || memoria[pc].tipo == CELDA_FIN) {
+	        return 1;
+	    }
 
-    // Obtiene la instrucción almacenada en la posición actual del PC
-    char *valor = map_memory[pc];
+	/*
+	 * El procesador ejecuta la misma palabra de 16 bits que leen LD y escriben
+	 * ST. Así una instrucción puede tratarse como dato y ejecutarse luego de ser
+	 * creada o modificada durante la ejecución.
+	 */
+	uint16_t instruccion = memoria[pc].palabra;
+	unsigned int opcode = (instruccion >> 13) & 0x7u;
+	int pc_siguiente = (pc + 1) & 0xFFFF;
+	int desplazamiento;
+	int direccion;
 
-    // Envía la instrucción al analizador léxico y sintáctico
-    set_input_from_memory(valor, line_path);
-    yyparse();
-    yylex();
+	switch (opcode) {
+		case 0: // ADD: relativo (bit 12=0) o inmediato (bit 12=1)
+			desplazamiento = extender_signo(instruccion, 12);
+			if (instruccion & 0x1000u) {
+				modificar_acumulador(overflow(acumulador + desplazamiento));
+			} else {
+				direccion = direccion_relativa(pc, desplazamiento);
+				modificar_acumulador(overflow(acumulador + memoria[direccion].palabra));
+			}
+			break;
 
-    // Si ocurrió un error durante el análisis, finalizar la ejecución
-    if (errores != 0) {
-        return errores;
-    }
+		case 1: // AND: relativo (bit 12=0) o inmediato (bit 12=1)
+			desplazamiento = extender_signo(instruccion, 12);
+			if (instruccion & 0x1000u) {
+				modificar_acumulador(acumulador & desplazamiento);
+			} else {
+				direccion = direccion_relativa(pc, desplazamiento);
+				modificar_acumulador(acumulador & memoria[direccion].palabra);
+			}
+			break;
 
-	// Mantener esta llamada por compatibilidad
-	// Originalmente resolvía un problema durante la ejecución
-	// Revisar antes de eliminar
-    fflush(stdin);
+		case 2: // NOTA relativo o NOTB sobre el acumulador
+			if (instruccion & 0x1000u) {
+				modificar_acumulador(~acumulador);
+			} else {
+				desplazamiento = extender_signo(instruccion, 12);
+				direccion = direccion_relativa(pc, desplazamiento);
+				modificar_acumulador(~memoria[direccion].palabra);
+			}
+			break;
 
-    pc++;// Avanza el contador de programa
-    if (pc >= tamMat) { // Si se alcanza el final de la memoria, vuelve al inicio
-        pc = 0;
-    }
-	printf("PC YACC: %i\n", pc);
-	return 0;
+		case 3: // LD (bit 12=0) / ST (bit 12=1)
+			desplazamiento = extender_signo(instruccion, 12);
+			direccion = direccion_relativa(pc, desplazamiento);
+			if (instruccion & 0x1000u) {
+				escribir_memoria(direccion, acumulador);
+			} else {
+				modificar_acumulador(memoria[direccion].palabra);
+			}
+			break;
+
+		case 4: { // BR: NZP + PCoffset10
+			char flags[4];
+			int indice = 0;
+			if (instruccion & 0x1000u) flags[indice++] = 'n';
+			if (instruccion & 0x0800u) flags[indice++] = 'z';
+			if (instruccion & 0x0400u) flags[indice++] = 'p';
+			flags[indice] = '\0';
+			if (compararFlags(flags)) {
+				desplazamiento = extender_signo(instruccion, 10);
+				pc_siguiente = direccion_relativa(pc, desplazamiento);
+				banderaParaBranch = 1;
+			}
+			break;
+		}
+
+		case 7: { // TRAP: vector de 13 bits
+			unsigned int vector = instruccion & 0x1FFFu;
+			if (vector == 0x21u) {
+				banderaParaTrapDeSalida = 1;
+			} else if (vector == 0x23u) {
+				banderaParaTrapDeEntrada = 1;
+			} else {
+				return (errores = 310);
+			}
+			break;
+		}
+
+		default:
+			return (errores = 315);
+	}
+
+	pc = pc_siguiente;
+		printf("PC YACC: %i\n", pc);
+		return 0;
 }
 //========================================	FIN FUNCIONES PRINCIPALES =========================================
 //=============================================================================================================
@@ -332,19 +562,19 @@ int stepin(int lang, const char *line_path){
 	%type <str> intrucciones
 	%type <str> reservas
 	%type <str> dato
+	%type <str> datoFill
 	%type <str> direccion
 	
 	%start prog
 	
 	%%
 prog:
-	|   prog intrucciones '\n'{printf("\n");
+		%empty
+		|   prog intrucciones '\n'{printf("\n");
 		//ACA SAQUE EL IF Y EL GETCHAR
 	}
 	|   prog ETIQUETA intrucciones '\n' {if(pre==1){
-		matriz_etiquetas_k[contador_matriz_etiquets]=$2;
-		matriz_etiquetas_d[contador_matriz_etiquets]=pc;
-		contador_matriz_etiquets++;
+		registrar_etiqueta($2, pc);
 		}
 	}
 	|	prog reservas '\n' {}
@@ -362,7 +592,7 @@ intrucciones:
 		}
 	}
 	|   ADD direccion           {if(pre==0){
-		modificar_acumulador(acumulador + dato[direccionador]);
+		modificar_acumulador(acumulador + memoria[direccionador].palabra);
 		printf("REGISTRO: %i\n",acumulador);
 		acumulador = overflow(acumulador);
 	}}
@@ -375,14 +605,14 @@ intrucciones:
 	}
 	}
 	|   AND direccion           {if(pre==0){
-		modificar_acumulador(acumulador & dato[direccionador]);
+		modificar_acumulador(acumulador & memoria[direccionador].palabra);
 		printf("REGISTRO: %i\n",acumulador);
 	}}
 	|	AND error				{if(pre==1){
 			errores= 300;
 	}}
 	|   NOTA direccion          {if(pre==0){
-		modificar_acumulador(~dato[direccionador]);
+		modificar_acumulador(~memoria[direccionador].palabra);
 		printf("REGISTRO: %i\n",acumulador);
 	}}
 	|	NOTA error				{if(pre==1){
@@ -398,13 +628,13 @@ intrucciones:
 	}}
 	|   LD direccion            {
 		if(pre==0){
-			modificar_acumulador(dato[direccionador]);
+			modificar_acumulador(memoria[direccionador].palabra);
 			printf("REGISTRO: %i\n",acumulador);
 		}
 	}
 	| 	LD dato					{
 		if(pre==0){
-			modificar_acumulador(dato[pc+1+A]);
+			modificar_acumulador(memoria[(pc+1+A) & 0xFFFF].palabra);
 			printf("REGISTRO: %i\n",acumulador);
 		}
 	}
@@ -413,15 +643,13 @@ intrucciones:
 	}}
 	|   ST direccion            {
 		if(pre==0){
-			//strcpy(map_memory[direccionador], "");
-			dato[direccionador] = acumulador;
+			escribir_memoria(direccionador, acumulador);
 		}
 		
 	}
 	|	ST dato					{
 		if(pre==0){
-			//strcpy(map_memory[pc+1+A], "");
-			dato[pc+1+A] = acumulador;
+			escribir_memoria((pc+1+A) & 0xFFFF, acumulador);
 		}
 	}
 	|	ST error				{if(pre==1){
@@ -474,7 +702,7 @@ intrucciones:
 reservas:
 	'.' ORIG HEXA              {if(pre==1){
 		codigo_inicio = 0;
-		origen=strtol($3+1, '\0',16);
+		origen=strtol($3+1, NULL,16);
 	}}
 	|'.' ORIG error             {if(pre==1){
         	errores= 311;
@@ -482,21 +710,30 @@ reservas:
 		}
 	|   '.' END                     {if(pre==1){
 		fin= 7; //tengo tiempo, para saber
+		memoria[pc].tipo = CELDA_FIN;
 		}else{
 		fin= 7;
 			errores = 1;
 	}
 	}
-	|   ETIQUETA '.' FILL dato      {if(pre==1){
-		matriz_etiquetas_k[contador_matriz_etiquets]=$1;
-		matriz_etiquetas_d[contador_matriz_etiquets]=pc;
-		contador_matriz_etiquets++;
+	|   ETIQUETA '.' FILL datoFill      {if(pre==1){
+		registrar_etiqueta($1, pc);
 	}} //sacar de aca etiqueta_key para la tabla de etiquetas y de abajo el tipo dato sacar el $2 que es el valor
 	|   ETIQUETA '.' BLKW                    {if(pre==1){
-		matriz_etiquetas_k[contador_matriz_etiquets]=$1;
-		matriz_etiquetas_d[contador_matriz_etiquets]=pc;
-		contador_matriz_etiquets++;
+		registrar_etiqueta($1, pc);
 	}}
+datoFill:
+	NUMERO {
+		if(pre==1) {
+			datardo = atoi($1+1);
+			if (datardo > 32767 || datardo < -32768) {
+				errores = 212;
+			}
+		}
+	}
+	| ERROR_NUMERO {
+		errores = 312;
+	}
 
 dato:
 	NUMERO {
@@ -534,12 +771,12 @@ datoBR:
 
 direccion: //no imprime, porque? no se, fijate (arreglado)
 	HEXA                      {
-		if(pre==1){direccionador=strtol($1+1, '\0',16);
+		if(pre==1){direccionador=strtol($1+1, NULL,16);
 		if (direccionador>65536 || direccionador<0) { // agregue || direccionador<0
 			errores= 211;
 		}
 		}
-		if(pre==0){direccionador=strtol($1+1, '\0',16);}
+		if(pre==0){direccionador=strtol($1+1, NULL,16);}
 		
 	}
 	|   ETIQUETA                   {
@@ -554,7 +791,7 @@ direccion: //no imprime, porque? no se, fijate (arreglado)
 
 direccionBR: //no imprime, porque? no se, fijate (arreglado)
 	HEXA                      {
-		if(pre==1){direccionador=strtol($1+1, '\0',16);
+		if(pre==1){direccionador=strtol($1+1, NULL,16);
 		
 		if (direccionador>65536 || direccionador<0) { // agregue || direccionador<0
 				errores= 211;
@@ -567,7 +804,7 @@ direccionBR: //no imprime, porque? no se, fijate (arreglado)
 			}
 		}
 		}
-		if(pre==0){direccionador=strtol($1+1, '\0',16);}
+		if(pre==0){direccionador=strtol($1+1, NULL,16);}
 		
 	}
 	|   ETIQUETA                   {

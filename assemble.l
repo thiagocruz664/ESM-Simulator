@@ -22,6 +22,15 @@
 extern YYSTYPE yylval;
 #include "assemble.tab.h" // Incluir el encabezado generado por Bison
 
+static char* duplicar_texto(const char* texto) {
+    size_t longitud = strlen(texto) + 1;
+    char* copia = (char*)malloc(longitud);
+    if (copia != NULL) {
+        memcpy(copia, texto, longitud);
+    }
+    return copia;
+}
+
 %}
 
 flags       (n|z|p|n(z|p)|z(n|p)|p(n|z)|nzp|npz|znp|zpn|pnz|pzn)
@@ -39,12 +48,12 @@ minusculas  [a-z]
 "LD"        { return LD; }
 "ST"        { return ST; }
 "BR"{flags}        {{ 
-    char* temp = strdup(yytext+2);  // Saltar "br"
+    char* temp = duplicar_texto(yytext+2);  // Saltar "BR"
     yylval = temp; 
     return BR_FLAGS; 
 }}
 "BR "{flags}        {{ 
-    char* temp = strdup(yytext+3);  // Saltar "br"
+    char* temp = duplicar_texto(yytext+3);  // Saltar "BR "
     yylval = temp; 
     return BR_FLAGS; 
 }}
@@ -56,11 +65,11 @@ minusculas  [a-z]
 
 "."         { return '.'; }
 
-"#"{numero}            { yylval = strdup(yytext); return NUMERO; }
-{numero}                { yylval = strdup(yytext); return ERROR_NUMERO; }
-"x"{hexa}              { yylval = strdup(yytext); return HEXA;}
-{letra}({numero}?)  { yylval = strdup(yytext); return ETIQUETA; }
-{minusculas}        {yylval = strdup(yytext); return INVALIDO;}
+"#"{numero}            { yylval = duplicar_texto(yytext); return NUMERO; }
+{numero}                { yylval = duplicar_texto(yytext); return ERROR_NUMERO; }
+"x"{hexa}              { yylval = duplicar_texto(yytext); return HEXA;}
+{letra}({numero}?)  { yylval = duplicar_texto(yytext); return ETIQUETA; }
+{minusculas}        {yylval = duplicar_texto(yytext); return INVALIDO;}
 
 [\t]+;      // Ignorar espacios
 \n          {return '\n';}; // Ignorar nueva línea

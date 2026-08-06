@@ -145,16 +145,16 @@ class Ayuda:
             "intro",
         )
 
-        self._agregar("1. Flujo de trabajo\n", "seccion")
+        self._agregar("Flujo de trabajo\n", "seccion")
         self._agregar(
             "• Escriba o abra un programa.\n"
             "• Presione Ensamblar para validar el código y cargar la memoria.\n"
             "• Use ▶ para ejecutar de forma continua o ↩ para avanzar una instrucción.\n"
             "• Use ↻ para reiniciar el procesador y limpiar la memoria ensamblada.\n"
-            "• Puede guardar también las palabras resultantes en binario o hexadecimal.\n"
+            "• Puede guardar también el codigo ensamblado en binario o hexadecimal.\n"
         )
 
-        self._agregar("2. Estructura mínima\n", "seccion")
+        self._agregar("Estructura mínima\n", "seccion")
         self._agregar(
             ".ORIG define la primera dirección del programa y .END lo finaliza. "
             "Ambas directivas son obligatorias para código assembly.\n"
@@ -171,7 +171,7 @@ class Ayuda:
             "nota",
         )
 
-        self._agregar("3. Instrucciones\n", "seccion")
+        self._agregar("Instrucciones\n", "seccion")
         self._agregar(
             "ADD #n / ADD ETQ     Suma al acumulador un inmediato o una palabra de memoria.\n"
             "AND #n / AND ETQ     Realiza AND bit a bit.\n"
@@ -190,7 +190,7 @@ class Ayuda:
             "nota",
         )
 
-        self._agregar("4. Directivas y etiquetas\n", "seccion")
+        self._agregar("Directivas y etiquetas\n", "seccion")
         self._agregar(
             ".FILL #n reserva una palabra inicializada y puede escribirse con "
             "o sin etiqueta previa; n debe estar entre -32768 y 32767. "
@@ -210,10 +210,18 @@ class Ayuda:
             "codigo",
         )
 
-        self._agregar("5. Entrada y salida con doble TRAP\n", "seccion")
+        self._agregar("Entrada y salida con TRAPs\n", "seccion")
         self._agregar(
-            "Al ejecutar este programa con ▶, TRAP x23 solicita un carácter y "
-            "TRAP x21 lo refleja una sola vez en la consola.\n"
+            "TRAP x23 (IN)\n"
+            "Lee un carácter ingresado por la consola y lo almacena en el "
+            "registro acumulador. Esta instrucción también puede "
+            "referenciarse mediante el mnemónico IN.\n"
+        )
+        self._agregar(
+            "TRAP x21 (OUT)\n"
+            "Imprime en la consola el contenido del registro acumulador. "
+            "Esta instrucción también puede referenciarse mediante el "
+            "mnemónico OUT.\n"
         )
         self._agregar(
             ".ORIG x3000\n"
@@ -223,7 +231,7 @@ class Ayuda:
             "codigo",
         )
 
-        self._agregar("6. Ejemplo del paper: OR entre X e Y\n", "seccion")
+        self._agregar("Ejemplo: OR entre X e Y\n", "seccion")
         self._agregar(
             "El programa aplica De Morgan: (X' AND Y')'. El resultado se guarda en R.\n"
         )
@@ -242,7 +250,7 @@ class Ayuda:
             "codigo",
         )
 
-        self._agregar("7. Ejemplo del paper: multiplicación\n", "seccion")
+        self._agregar("Ejemplo: Multiplicación\n", "seccion")
         self._agregar(
             "Multiplica X por Y mediante sumas repetidas y deja el resultado en R.\n"
         )
@@ -273,16 +281,16 @@ class Ayuda:
             "intro",
         )
 
-        self._agregar("1. Workflow\n", "seccion")
+        self._agregar("Workflow\n", "seccion")
         self._agregar(
             "• Write or open a program.\n"
             "• Press Assemble to validate the source and load memory.\n"
             "• Use ▶ to run continuously or ↩ to execute one instruction.\n"
             "• Use ↻ to reset the processor and assembled memory.\n"
-            "• The resulting words can also be saved as binary or hexadecimal.\n"
+            "• The resulting assembled code can be saved as binary or hexadecimal.\n"
         )
 
-        self._agregar("2. Minimum structure\n", "seccion")
+        self._agregar("Minimum structure\n", "seccion")
         self._agregar(
             ".ORIG defines the first program address and .END terminates it. "
             "Both directives are required for assembly source.\n"
@@ -293,7 +301,7 @@ class Ayuda:
             "nota",
         )
 
-        self._agregar("3. Instructions\n", "seccion")
+        self._agregar("Instructions\n", "seccion")
         self._agregar(
             "ADD #n / ADD LABEL   Add an immediate or memory word to the accumulator.\n"
             "AND #n / AND LABEL   Perform a bitwise AND.\n"
@@ -312,7 +320,7 @@ class Ayuda:
             "nota",
         )
 
-        self._agregar("4. Directives and labels\n", "seccion")
+        self._agregar("Directives and labels\n", "seccion")
         self._agregar(
             ".FILL #n reserves an initialized word and may be written with or "
             "without a preceding label; n must be between -32768 and 32767. "
@@ -326,16 +334,27 @@ class Ayuda:
         )
         self._agregar("I .BLKW\nK .FILL #3\nL ADD #-1\nBRp L\n", "codigo")
 
-        self._agregar("5. Input and output with two TRAPs\n", "seccion")
+        self._agregar("Input and output with TRAPs\n", "seccion")
         self._agregar(
-            "When this program is run with ▶, TRAP x23 reads a character and "
-            "TRAP x21 echoes it exactly once in the console.\n"
+            "TRAP x23 (IN)\n"
+            "Reads a character entered from the console and stores it in the "
+            "accumulator register. This instruction can also be referenced "
+            "using the mnemonic IN.\n"
         )
         self._agregar(
-            ".ORIG x3000\nTRAP x23\nTRAP x21\n.END\n", "codigo"
+            "TRAP x21 (OUT)\n"
+            "Prints the contents of the accumulator register to the console. "
+            "This instruction can also be referenced using the mnemonic OUT.\n"
         )
-
-        self._agregar("6. Paper example: OR between X and Y\n", "seccion")
+        self._agregar(
+            ".ORIG x3000\n"
+            "TRAP x23\n"
+            "TRAP x21\n"
+            ".END\n",
+            "codigo",
+        )
+        
+        self._agregar("Example: OR between X and Y\n", "seccion")
         self._agregar(
             "The program applies De Morgan's law: (X' AND Y')'. The result is stored in R.\n"
         )
@@ -354,7 +373,7 @@ class Ayuda:
             "codigo",
         )
 
-        self._agregar("7. Paper example: multiplication\n", "seccion")
+        self._agregar("Example: Multiplication\n", "seccion")
         self._agregar(
             "This program multiplies X by Y with repeated addition and leaves the result in R.\n"
         )

@@ -20,7 +20,22 @@ from queue import Queue
 import re
 
 class Consola:
-    def __init__(self,ventana,lang):
+    def __init__(self,ventana: tk.Tk,lang: str):
+        """
+        Inicializa la consola del simulador
+
+        Crea el área de salida utilizada para mostrar mensajes del
+        ensamblador, errores, entradas y salidas del programa,
+        incluyendo una barra de desplazamiento y el botón para
+        limpiar su contenido
+
+        Parametros
+        ----------
+        ventana : Tk
+            Ventana principal de la aplicación
+        lang : str
+            Idioma inicial de la interfaz
+        """
         self.ventana = ventana
         self.tib = 0
         self.lang = lang
@@ -29,7 +44,8 @@ class Consola:
         self.frame_principal.grid(row=2,column=0,padx=0,pady=0,sticky="nw")
         self.consola_title = tk.Label(self.frame_principal,text="Consola:")
         self.consola_title.grid(row=0,column=0,padx=15,pady=5,sticky="nw")
-        self.clear_botton = tk.Button(self.frame_principal,text="Limpiar",command=self.limpiar,borderwidth=0,highlightthickness=0)
+        self.clear_botton = tk.Button(self.frame_principal,text="Limpiar",
+                                      command=self.limpiar,borderwidth=0,highlightthickness=0)
         self.clear_botton.grid(row=0,column=1,padx=15,pady=5,sticky="ne")
         self.consola = tk.Text(self.frame_principal,state=tk.DISABLED,width=80, height=10)    
         self.consola.grid(row=1,column=0,columnspan=2,sticky="nsew",padx=5,pady=5)
@@ -37,14 +53,44 @@ class Consola:
         self.consola_scrollbar.grid(row=1, column=2, sticky="ns")
         self.consola.config(yscrollcommand=self.consola_scrollbar.set)
     
-    def tema(self,theme):
+    def tema(self,theme: dict):
+        """
+        Aplica el tema gráfico a la consola
+
+        Actualiza los colores del área de texto, la barra de
+        desplazamiento, el botón de limpieza y el título
+
+        Parametros
+        ----------
+        theme : dict
+            Diccionario con la configuración visual del tema
+        """
         self.frame_principal.configure(bg=theme["bg"])
         self.consola_title.config(bg=theme["bg"], fg=theme["fg"])
-        self.consola.config(bg=theme["entry_bg"], fg=theme["entry_fg"],highlightbackground=theme["menu_bg"],highlightcolor=theme["menu_bg"])
-        self.consola_scrollbar.configure(bg=theme["scroll_bg"],troughcolor=theme["scroll_fg"],activebackground=theme["scroll_active"],highlightbackground=theme["menu_bg"],highlightcolor=theme["menu_bg"])
-        self.clear_botton.config(bg=theme["button_bg"],fg=theme["button_fg"],activebackground=theme["menu_active_bg"],activeforeground=theme["menu_active_fg"])
+        self.consola.config(bg=theme["entry_bg"], fg=theme["entry_fg"],
+                            highlightbackground=theme["menu_bg"],
+                            highlightcolor=theme["menu_bg"])
+        self.consola_scrollbar.configure(bg=theme["scroll_bg"],
+                                         troughcolor=theme["scroll_fg"],
+                                         activebackground=theme["scroll_active"],
+                                         highlightbackground=theme["menu_bg"],
+                                         highlightcolor=theme["menu_bg"])
+        self.clear_botton.config(bg=theme["button_bg"],fg=theme["button_fg"],
+                                 activebackground=theme["menu_active_bg"],
+                                 activeforeground=theme["menu_active_fg"])
     
     def ajustar_zoom(self, zoom_value):
+        """
+        Modifica el tamaño de fuente de la consola
+
+        Actualiza el tamaño de la fuente y ajusta las dimensiones
+        del área de texto para mantener una visualización adecuada
+
+        Parametros
+        ----------
+        zoom_value : int
+            Porcentaje de zoom seleccionado por el usuario
+        """
         font_size = int(zoom_value * 0.10)
         self.consola.config(font=("Arial", font_size))
         self.consola_title.config(font=("Arial", font_size))
@@ -52,7 +98,21 @@ class Consola:
         # Ajusta el ancho para compensar el tamaño de fuente
         self.consola.config(width=int(800/font_size), height=int(100/font_size))
 
-    def print(self,mensaje,tob=0):
+    def print(self,mensaje: str, tob=0):
+        """
+        Escribe un mensaje en la consola
+
+        Permite mostrar mensajes generados por el simulador,
+        gestionando el formato de impresión según el tipo de salida
+
+        Parametros
+        ----------
+        mensaje : str
+            Texto que será mostrado en la consola
+        tob : int, optional
+            Indica si el mensaje corresponde a una salida continua
+            del programa
+        """
         if tob == 1:
             self.consola.config(state=tk.NORMAL)
             self.consola.insert(tk.END,mensaje)
@@ -72,11 +132,29 @@ class Consola:
                 self.consola.config(state=tk.DISABLED)
                 self.consola.see(tk.END)
     def limpiar(self):
+        """
+        Elimina todo el contenido mostrado en la consola
+        """
         self.consola.config(state=tk.NORMAL)
         self.consola.delete(1.0,tk.END)
         self.consola.config(state=tk.DISABLED)
     
-    def lenguaje(self, lang, errores_lang):
+    def lenguaje(self, lang: str, errores_lang: dict):
+        """
+        Actualiza el idioma de la consola
+
+        Modifica los textos visibles de la interfaz y traduce el
+        contenido previamente mostrado, incluyendo errores,
+        mensajes del ensamblador, entradas y salidas del programa
+
+        Parametros
+        ----------
+        lang : str
+            Idioma que se aplicará a la interfaz ("es" o "en")
+        errores_lang : dict
+            Diccionario con las traducciones de mensajes y códigos
+            de error
+        """
         if lang == "es":
             self.consola_title.config(text="Consola: ")
             self.clear_botton.config(text="Limpiar")
@@ -136,7 +214,19 @@ class Consola:
             self.lang = lang
 
 class Variables:
-    def __init__(self, ventana):
+    def __init__(self, ventana: tk.Tk):
+        """
+        Inicializa el panel de variables del simulador
+
+        Crea la interfaz encargada de mostrar el contenido del
+        registro acumulador, el registro de estado y el contador
+        de programa
+
+        Parameters
+        ----------
+        ventana : Tk
+            Ventana principal de la aplicación
+        """
         self.ventana = ventana
         self.frame_principal = tk.Frame(self.ventana)
         self.frame_principal.grid(row=2,column=1,padx=0,pady=0)
@@ -153,7 +243,15 @@ class Variables:
         self.data_pc = tk.Label(self.frame_principal,text=" 0 ",font=("Arial",16))
         self.data_pc.grid(row=2,column=1,padx=15,pady=5,sticky="nw")
 
-    def tema(self,theme):
+    def tema(self,theme: dict):
+        """
+        Aplica el tema gráfico al panel de variables
+
+        Parametros
+        ----------
+        theme : dict
+            Diccionario con la configuración visual del tema
+        """
         self.frame_principal.configure(bg=theme["bg"])
         self.register.configure(bg=theme["bg"],fg=theme["fg"])
         self.data_register.configure(bg=theme["bg"],fg=theme["fg"])
@@ -162,7 +260,15 @@ class Variables:
         self.pc.configure(bg=theme["bg"],fg=theme["fg"])
         self.data_pc.configure(bg=theme["bg"],fg=theme["fg"])
 
-    def ajustar_zoom(self, zoom_value):
+    def ajustar_zoom(self, zoom_value: int):
+        """
+        Modifica el tamaño de fuente del panel de variables
+
+        Parametros
+        ----------
+        zoom_value : int
+            Porcentaje de zoom seleccionado por el usuario
+        """
         font_size = int(zoom_value * 0.16)
         self.register.configure(font=("Arial", font_size))
         self.data_register.configure(font=("Arial", font_size))
@@ -173,7 +279,15 @@ class Variables:
         # Ajusta el ancho para compensar el tamaño de fuente
         self.frame_principal.config(height=int((10*16)/font_size))
 
-    def lenguaje(self,lang):
+    def lenguaje(self,lang: str):
+        """
+        Actualiza el idioma de las etiquetas del panel de variables
+
+        Parameters
+        ----------
+        lang : str
+            Idioma que se aplicará a la interfaz ("es" o "en")
+        """
         if lang == "es":
             self.register.config(text="Registro: ")
             self.status.config(text="Estado: ")
@@ -181,11 +295,28 @@ class Variables:
             self.register.config(text="Register: ")
             self.status.config(text="Status: ")
 
-    def actualizar(self,register,status,pc):
+    def actualizar(self,register: int,status: int,pc: str):
+        """
+        Actualiza los valores mostrados en el panel de variables
+
+        Parameters
+        ----------
+        register : int
+            Valor actual del registro acumulador
+        status : int
+            Valor actual del registro de estado
+        pc : str
+            Valor actual del contador de programa
+        """
         self.data_register.config(text=str(register))
         self.data_status.config(text=str(status))
         self.data_pc.config(text=str(pc.upper()))
     def limpiar(self):
+        """
+        Restablece los valores del panel de variables a su estado
+        inicial
+        """
         self.data_register.config(text=" 0 ")
         self.data_status.config(text=" 0 ")
         self.data_pc.config(text=" 0 ")
+        

@@ -321,6 +321,76 @@ void escribir_memoria(int direccion, int valor){
 	hubo_escritura_memoria = 1;
 	ultima_direccion_escrita = direccion;
 }
+
+/*
+ * Detecta instrucciones o directivas cuyo operando fue escrito sin el
+ * separador obligatorio. El lexer historico reconoce "ADD#-2" como los
+ * tokens ADD y #-2, porque no conserva informacion sobre el espacio que habia
+ * entre ambos. Esta validacion se ejecuta sobre la linea original antes de
+ * enviarla a LEX/YACC, evitando que una sentencia invalida sea aceptada y que
+ * Python termine representandola silenciosamente como una palabra cero.
+ */
+int validar_separacion_instruccion_operando(const char *linea){
+	static const char *operaciones[] = {
+		"ADD", "AND", "NOTA", "LD", "ST", "TRAP"
+	};
+	const char *cursor = linea;
+
+	if (linea == NULL) {
+		return 0;
+	}
+
+	while (*cursor != '\0') {
+		while (*cursor != '\0' &&
+			(isspace((unsigned char)*cursor) || *cursor == ';')) {
+			cursor++;
+		}
+		if (*cursor == '\0' || (cursor[0] == '/' && cursor[1] == '/')) {
+			break;
+		}
+
+		const char *fin_token = cursor;
+		while (*fin_token != '\0' &&
+			!isspace((unsigned char)*fin_token) && *fin_token != ';') {
+			if (fin_token[0] == '/' && fin_token[1] == '/') {
+				break;
+			}
+			fin_token++;
+		}
+
+		size_t longitud_token = (size_t)(fin_token - cursor);
+		for (size_t i = 0;
+			i < sizeof(operaciones) / sizeof(operaciones[0]);
+			i++) {
+			size_t longitud_operacion = strlen(operaciones[i]);
+			if (longitud_token > longitud_operacion &&
+				strncmp(cursor, operaciones[i], longitud_operacion) == 0 &&
+				(cursor[longitud_operacion] == '#' ||
+				 cursor[longitud_operacion] == 'x')) {
+				return 321;
+			}
+		}
+
+		/* Tambien se exige separacion en BR compacto y directivas con dato. */
+		if (longitud_token > 2 && strncmp(cursor, "BR", 2) == 0) {
+			for (const char *caracter = cursor + 2; caracter < fin_token; caracter++) {
+				if (*caracter == '#' || *caracter == 'x') {
+					return 321;
+				}
+			}
+		}
+		if ((longitud_token > 5 && strncmp(cursor, ".ORIG", 5) == 0 &&
+			 cursor[5] == 'x') ||
+			(longitud_token > 5 && strncmp(cursor, ".FILL", 5) == 0 &&
+			 cursor[5] == '#')) {
+			return 321;
+		}
+
+		cursor = fin_token;
+	}
+
+	return 0;
+}
 //========================================	FIN FUNCIONES DE MEMORIA ========================================
 //===========================================================================================================
 
@@ -370,6 +440,12 @@ int assemble(int lang, const char *file_path, const char *line_path){
         if (fgets(linea, sizeof(linea), archivo) != NULL) {
             printf("LINEA: %s\n", linea);
 
+			int error_separacion = validar_separacion_instruccion_operando(linea);
+			if (error_separacion != 0) {
+				fclose(archivo);
+				return (errores = error_separacion);
+			}
+
             set_input_from_memory(linea, line_path);
             yyparse();
             yylex();
@@ -396,6 +472,11 @@ int assemble(int lang, const char *file_path, const char *line_path){
     // Recorre el archivo línea por línea hasta encontrar la directiva END
     // o llegar al final del archivo
     while (fin != 7 && fgets(linea, sizeof(linea), archivo) != NULL) {
+		int error_separacion = validar_separacion_instruccion_operando(linea);
+		if (error_separacion != 0) {
+			fclose(archivo);
+			return (errores = error_separacion);
+		}
 
         // Guarda una copia del código fuente para depuración.
         if (pc < tamMat) {
@@ -534,6 +615,10 @@ int stepin(int lang, const char *line_path){
 				banderaParaTrapDeSalida = 1;
 			} else if (vector == 0x23u) {
 				banderaParaTrapDeEntrada = 1;
+			} else if (vector == 0x25u) {
+				/* HALT es el alias de TRAP x25 y finaliza normalmente. */
+				pc = pc_siguiente;
+				return 1;
 			} else {
 				return (errores = 310);
 			}
@@ -580,7 +665,10 @@ prog:
 	|	prog reservas '\n' {}
 	|	prog INVALIDO {
 		if(pre==1){
-			errores= 315;
+			/* Conservar errores especificos informados por el lexer. */
+			if (errores == 0) {
+				errores= 315;
+			}
 		}
 	} 
 ;
@@ -686,9 +774,14 @@ intrucciones:
 			banderaParaTrapDeEntrada = 1;
 			
 		}
+		if((int)direccionador==37){
+			// TRAP x25 -> HALT
+			errores = 1;
+		}
 		}
 		if(pre==1){
-			if((int)direccionador!=33 &&  (int)direccionador!=35){
+			if((int)direccionador!=33 && (int)direccionador!=35 &&
+			   (int)direccionador!=37){
 					errores= 310;
 			}
 		}}

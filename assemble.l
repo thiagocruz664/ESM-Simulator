@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #define YYSTYPE char*
 extern YYSTYPE yylval;
+extern int errores;
 #include "assemble.tab.h" // Incluir el encabezado generado por Bison
 
 static char* duplicar_texto(const char* texto) {
@@ -40,6 +41,25 @@ hexa        [abcdef0-9]+
 minusculas  [a-z]
 
 %%
+
+ /*
+  * Estas reglas deben aparecer antes que las instrucciones individuales. Al
+  * abarcar la sentencia completa, Flex no puede dividir ADD#-2 en los tokens
+  * validos ADD y #-2. La validacion de la linea original en assemble.y aplica
+  * el mismo criterio antes de iniciar el parser.
+  */
+("ADD"|"AND"|"NOTA"|"LD"|"ST"|"TRAP")[#x][-A-Za-z0-9]+ {
+    errores = 321;
+    return INVALIDO;
+}
+"BR"{flags}[#x][-A-Za-z0-9]+ {
+    errores = 321;
+    return INVALIDO;
+}
+(".ORIG"|".FILL")[#x][-A-Za-z0-9]+ {
+    errores = 321;
+    return INVALIDO;
+}
 
 "ADD"       { return ADD; }
 "AND"       { return AND; }
@@ -68,12 +88,28 @@ minusculas  [a-z]
 "#"{numero}            { yylval = duplicar_texto(yytext); return NUMERO; }
 {numero}                { yylval = duplicar_texto(yytext); return ERROR_NUMERO; }
 "x"{hexa}              { yylval = duplicar_texto(yytext); return HEXA;}
-{letra}({numero}?)  { yylval = duplicar_texto(yytext); return ETIQUETA; }
+{letra}({numero}?)  {
+    /*
+     * HALT es el alias legible de TRAP x25. Para no duplicar la semantica
+     * del TRAP, el lexer devuelve primero TRAP y reinyecta x25 para que el
+     * parser reciba exactamente la misma secuencia de tokens que si el
+     * usuario hubiese escrito "TRAP x25".
+     */
+    if (strcmp(yytext, "HALT") == 0) {
+        unput('5');
+        unput('2');
+        unput('x');
+        unput(' ');
+        return TRAP;
+    }
+    yylval = duplicar_texto(yytext);
+    return ETIQUETA;
+}
 {minusculas}        {yylval = duplicar_texto(yytext); return INVALIDO;}
 
-[\t]+;      // Ignorar espacios
+[[:blank:]]+   { /* Ignorar espacios y tabulaciones */ }
 \n          {return '\n';}; // Ignorar nueva línea
-.           { /* Ignorar otros caracteres */ }
+.           { yylval = duplicar_texto(yytext); return INVALIDO; }
 %%
 
 // Función principal (opcional)

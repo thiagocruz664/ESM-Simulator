@@ -374,6 +374,76 @@ void escribir_memoria(int direccion, int valor){
 	hubo_escritura_memoria = 1;
 	ultima_direccion_escrita = direccion;
 }
+
+/*
+ * Detecta instrucciones o directivas cuyo operando fue escrito sin el
+ * separador obligatorio. El lexer historico reconoce "ADD#-2" como los
+ * tokens ADD y #-2, porque no conserva informacion sobre el espacio que habia
+ * entre ambos. Esta validacion se ejecuta sobre la linea original antes de
+ * enviarla a LEX/YACC, evitando que una sentencia invalida sea aceptada y que
+ * Python termine representandola silenciosamente como una palabra cero.
+ */
+int validar_separacion_instruccion_operando(const char *linea){
+	static const char *operaciones[] = {
+		"ADD", "AND", "NOTA", "LD", "ST", "TRAP"
+	};
+	const char *cursor = linea;
+
+	if (linea == NULL) {
+		return 0;
+	}
+
+	while (*cursor != '\0') {
+		while (*cursor != '\0' &&
+			(isspace((unsigned char)*cursor) || *cursor == ';')) {
+			cursor++;
+		}
+		if (*cursor == '\0' || (cursor[0] == '/' && cursor[1] == '/')) {
+			break;
+		}
+
+		const char *fin_token = cursor;
+		while (*fin_token != '\0' &&
+			!isspace((unsigned char)*fin_token) && *fin_token != ';') {
+			if (fin_token[0] == '/' && fin_token[1] == '/') {
+				break;
+			}
+			fin_token++;
+		}
+
+		size_t longitud_token = (size_t)(fin_token - cursor);
+		for (size_t i = 0;
+			i < sizeof(operaciones) / sizeof(operaciones[0]);
+			i++) {
+			size_t longitud_operacion = strlen(operaciones[i]);
+			if (longitud_token > longitud_operacion &&
+				strncmp(cursor, operaciones[i], longitud_operacion) == 0 &&
+				(cursor[longitud_operacion] == '#' ||
+				 cursor[longitud_operacion] == 'x')) {
+				return 321;
+			}
+		}
+
+		/* Tambien se exige separacion en BR compacto y directivas con dato. */
+		if (longitud_token > 2 && strncmp(cursor, "BR", 2) == 0) {
+			for (const char *caracter = cursor + 2; caracter < fin_token; caracter++) {
+				if (*caracter == '#' || *caracter == 'x') {
+					return 321;
+				}
+			}
+		}
+		if ((longitud_token > 5 && strncmp(cursor, ".ORIG", 5) == 0 &&
+			 cursor[5] == 'x') ||
+			(longitud_token > 5 && strncmp(cursor, ".FILL", 5) == 0 &&
+			 cursor[5] == '#')) {
+			return 321;
+		}
+
+		cursor = fin_token;
+	}
+
+	return 0;
+}
 //========================================	FIN FUNCIONES DE MEMORIA ========================================
 //===========================================================================================================
 
@@ -423,6 +493,12 @@ int assemble(int lang, const char *file_path, const char *line_path){
         if (fgets(linea, sizeof(linea), archivo) != NULL) {
             printf("LINEA: %s\n", linea);
 
+			int error_separacion = validar_separacion_instruccion_operando(linea);
+			if (error_separacion != 0) {
+				fclose(archivo);
+				return (errores = error_separacion);
+			}
+
             set_input_from_memory(linea, line_path);
             yyparse();
             yylex();
@@ -449,6 +525,11 @@ int assemble(int lang, const char *file_path, const char *line_path){
     // Recorre el archivo línea por línea hasta encontrar la directiva END
     // o llegar al final del archivo
     while (fin != 7 && fgets(linea, sizeof(linea), archivo) != NULL) {
+		int error_separacion = validar_separacion_instruccion_operando(linea);
+		if (error_separacion != 0) {
+			fclose(archivo);
+			return (errores = error_separacion);
+		}
 
         // Guarda una copia del código fuente para depuración.
         if (pc < tamMat) {
@@ -587,6 +668,10 @@ int stepin(int lang, const char *line_path){
 				banderaParaTrapDeSalida = 1;
 			} else if (vector == 0x23u) {
 				banderaParaTrapDeEntrada = 1;
+			} else if (vector == 0x25u) {
+				/* HALT es el alias de TRAP x25 y finaliza normalmente. */
+				pc = pc_siguiente;
+				return 1;
 			} else {
 				return (errores = 310);
 			}
@@ -604,7 +689,7 @@ int stepin(int lang, const char *line_path){
 //========================================	FIN FUNCIONES PRINCIPALES =========================================
 //=============================================================================================================
 
-#line 502 "assemble.tab.c"
+#line 693 "assemble.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -1050,11 +1135,11 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   466,   466,   467,   470,   474,   475,   483,   488,   493,
-     496,   501,   505,   508,   512,   515,   520,   523,   529,   535,
-     538,   544,   549,   552,   558,   564,   567,   570,   589,   592,
-     597,   601,   605,   613,   616,   620,   628,   633,   644,   649,
-     660,   667,   676,   687,   704
+       0,   657,   657,   658,   661,   665,   666,   677,   682,   687,
+     690,   695,   699,   702,   706,   709,   714,   717,   723,   729,
+     732,   738,   743,   746,   752,   758,   761,   764,   788,   791,
+     796,   800,   804,   812,   815,   819,   827,   832,   843,   848,
+     859,   866,   875,   886,   903
 };
 #endif
 
@@ -1656,227 +1741,230 @@ yyreduce:
   switch (yyn)
     {
   case 3: /* prog: prog intrucciones '\n'  */
-#line 467 "assemble.y"
+#line 658 "assemble.y"
                                           {printf("\n");
 		//ACA SAQUE EL IF Y EL GETCHAR
 	}
-#line 1558 "assemble.tab.c"
+#line 1749 "assemble.tab.c"
     break;
 
   case 4: /* prog: prog ETIQUETA intrucciones '\n'  */
-#line 470 "assemble.y"
+#line 661 "assemble.y"
                                             {if(pre==1){
 		registrar_etiqueta((yyvsp[-2].str), pc);
 		}
 	}
-#line 1567 "assemble.tab.c"
+#line 1758 "assemble.tab.c"
     break;
 
   case 5: /* prog: prog reservas '\n'  */
-#line 474 "assemble.y"
+#line 665 "assemble.y"
                                    {}
-#line 1573 "assemble.tab.c"
+#line 1764 "assemble.tab.c"
     break;
 
   case 6: /* prog: prog INVALIDO  */
-#line 475 "assemble.y"
+#line 666 "assemble.y"
                               {
 		if(pre==1){
-			errores= 315;
+			/* Conservar errores especificos informados por el lexer. */
+			if (errores == 0) {
+				errores= 315;
+			}
 		}
 	}
-#line 1583 "assemble.tab.c"
+#line 1777 "assemble.tab.c"
     break;
 
   case 7: /* intrucciones: ADD dato  */
-#line 483 "assemble.y"
+#line 677 "assemble.y"
                                     {if(pre==0){
 		printf("REGISTRO: %i\n",acumulador);
 		acumulador = overflow(acumulador);
 		}
 	}
-#line 1593 "assemble.tab.c"
+#line 1787 "assemble.tab.c"
     break;
 
   case 8: /* intrucciones: ADD direccion  */
-#line 488 "assemble.y"
+#line 682 "assemble.y"
                                     {if(pre==0){
 		modificar_acumulador(acumulador + memoria[direccionador].palabra);
 		printf("REGISTRO: %i\n",acumulador);
 		acumulador = overflow(acumulador);
 	}}
-#line 1603 "assemble.tab.c"
+#line 1797 "assemble.tab.c"
     break;
 
   case 9: /* intrucciones: ADD error  */
-#line 493 "assemble.y"
+#line 687 "assemble.y"
                                                         {if(pre==1){
 			errores= 300;
 	}}
-#line 1611 "assemble.tab.c"
+#line 1805 "assemble.tab.c"
     break;
 
   case 10: /* intrucciones: AND dato  */
-#line 496 "assemble.y"
+#line 690 "assemble.y"
                                     {if(pre==0){
 		modificar_acumulador(acumulador & A);
 		printf("REGISTRO: %i\n",acumulador);
 	}
 	}
-#line 1621 "assemble.tab.c"
+#line 1815 "assemble.tab.c"
     break;
 
   case 11: /* intrucciones: AND direccion  */
-#line 501 "assemble.y"
+#line 695 "assemble.y"
                                     {if(pre==0){
 		modificar_acumulador(acumulador & memoria[direccionador].palabra);
 		printf("REGISTRO: %i\n",acumulador);
 	}}
-#line 1630 "assemble.tab.c"
+#line 1824 "assemble.tab.c"
     break;
 
   case 12: /* intrucciones: AND error  */
-#line 505 "assemble.y"
+#line 699 "assemble.y"
                                                         {if(pre==1){
 			errores= 300;
 	}}
-#line 1638 "assemble.tab.c"
+#line 1832 "assemble.tab.c"
     break;
 
   case 13: /* intrucciones: NOTA direccion  */
-#line 508 "assemble.y"
+#line 702 "assemble.y"
                                     {if(pre==0){
 		modificar_acumulador(~memoria[direccionador].palabra);
 		printf("REGISTRO: %i\n",acumulador);
 	}}
-#line 1647 "assemble.tab.c"
+#line 1841 "assemble.tab.c"
     break;
 
   case 14: /* intrucciones: NOTA error  */
-#line 512 "assemble.y"
+#line 706 "assemble.y"
                                                         {if(pre==1){
 			errores= 303;
 	}}
-#line 1655 "assemble.tab.c"
+#line 1849 "assemble.tab.c"
     break;
 
   case 15: /* intrucciones: NOTB  */
-#line 515 "assemble.y"
+#line 709 "assemble.y"
                                     {if(pre==0){
 		modificar_acumulador(~acumulador);
 		printf("REGISTRO: %i\n",acumulador);
 
 	}}
-#line 1665 "assemble.tab.c"
+#line 1859 "assemble.tab.c"
     break;
 
   case 16: /* intrucciones: NOTB error  */
-#line 520 "assemble.y"
+#line 714 "assemble.y"
                                                         {if(pre==1){
 				errores= 301;
 	}}
-#line 1673 "assemble.tab.c"
+#line 1867 "assemble.tab.c"
     break;
 
   case 17: /* intrucciones: LD direccion  */
-#line 523 "assemble.y"
+#line 717 "assemble.y"
                                     {
 		if(pre==0){
 			modificar_acumulador(memoria[direccionador].palabra);
 			printf("REGISTRO: %i\n",acumulador);
 		}
 	}
-#line 1684 "assemble.tab.c"
+#line 1878 "assemble.tab.c"
     break;
 
   case 18: /* intrucciones: LD dato  */
-#line 529 "assemble.y"
+#line 723 "assemble.y"
                                                         {
 		if(pre==0){
 			modificar_acumulador(memoria[(pc+1+A) & 0xFFFF].palabra);
 			printf("REGISTRO: %i\n",acumulador);
 		}
 	}
-#line 1695 "assemble.tab.c"
+#line 1889 "assemble.tab.c"
     break;
 
   case 19: /* intrucciones: LD error  */
-#line 535 "assemble.y"
+#line 729 "assemble.y"
                                                         {if(pre==1){
 				errores= 300;
 	}}
-#line 1703 "assemble.tab.c"
+#line 1897 "assemble.tab.c"
     break;
 
   case 20: /* intrucciones: ST direccion  */
-#line 538 "assemble.y"
+#line 732 "assemble.y"
                                     {
 		if(pre==0){
 			escribir_memoria(direccionador, acumulador);
 		}
 		
 	}
-#line 1714 "assemble.tab.c"
+#line 1908 "assemble.tab.c"
     break;
 
   case 21: /* intrucciones: ST dato  */
-#line 544 "assemble.y"
+#line 738 "assemble.y"
                                                         {
 		if(pre==0){
 			escribir_memoria((pc+1+A) & 0xFFFF, acumulador);
 		}
 	}
-#line 1724 "assemble.tab.c"
+#line 1918 "assemble.tab.c"
     break;
 
   case 22: /* intrucciones: ST error  */
-#line 549 "assemble.y"
+#line 743 "assemble.y"
                                                         {if(pre==1){
 				errores= 300;
 	}}
-#line 1732 "assemble.tab.c"
+#line 1926 "assemble.tab.c"
     break;
 
   case 23: /* intrucciones: BR_FLAGS datoBR  */
-#line 552 "assemble.y"
+#line 746 "assemble.y"
                                       {if(pre==0){
 		if(compararFlags((yyvsp[-1].str))){
 				pc=pc+A;
 				banderaParaBranch=1;
 		}
 	}}
-#line 1743 "assemble.tab.c"
+#line 1937 "assemble.tab.c"
     break;
 
   case 24: /* intrucciones: BR_FLAGS direccionBR  */
-#line 558 "assemble.y"
+#line 752 "assemble.y"
                                       {if(pre==0){
 		if(compararFlags((yyvsp[-1].str))){
 			pc = direccionador - 1;
 			banderaParaBranch=1;
 		}
 	}}
-#line 1754 "assemble.tab.c"
+#line 1948 "assemble.tab.c"
     break;
 
   case 25: /* intrucciones: BR_FLAGS error  */
-#line 564 "assemble.y"
+#line 758 "assemble.y"
                                                         {if(pre==1){
 			errores= 300;
 	}}
-#line 1762 "assemble.tab.c"
+#line 1956 "assemble.tab.c"
     break;
 
   case 26: /* intrucciones: BR_FLAGS INVALIDO error  */
-#line 567 "assemble.y"
+#line 761 "assemble.y"
                                                                 {if(pre==1){
 			errores= 300;
 	}}
-#line 1770 "assemble.tab.c"
+#line 1964 "assemble.tab.c"
     break;
 
   case 27: /* intrucciones: TRAP direccion  */
-#line 570 "assemble.y"
+#line 764 "assemble.y"
                                     {if(pre==0){
 		if((int)direccionador==33){
 			//ESTO ES TRAP 21 -> OUT
@@ -1890,51 +1978,56 @@ yyreduce:
 			banderaParaTrapDeEntrada = 1;
 			
 		}
+		if((int)direccionador==37){
+			// TRAP x25 -> HALT
+			errores = 1;
+		}
 		}
 		if(pre==1){
-			if((int)direccionador!=33 &&  (int)direccionador!=35){
+			if((int)direccionador!=33 && (int)direccionador!=35 &&
+			   (int)direccionador!=37){
 					errores= 310;
 			}
 		}}
-#line 1794 "assemble.tab.c"
+#line 1993 "assemble.tab.c"
     break;
 
   case 28: /* intrucciones: TRAP error  */
-#line 589 "assemble.y"
+#line 788 "assemble.y"
                                                         {if(pre==1){
 				errores= 310;
 	}}
-#line 1802 "assemble.tab.c"
+#line 2001 "assemble.tab.c"
     break;
 
   case 29: /* intrucciones: error  */
-#line 592 "assemble.y"
+#line 791 "assemble.y"
                         {if(pre==1){
 				errores= 315;
 	}}
-#line 1810 "assemble.tab.c"
+#line 2009 "assemble.tab.c"
     break;
 
   case 30: /* reservas: '.' ORIG HEXA  */
-#line 597 "assemble.y"
+#line 796 "assemble.y"
                                    {if(pre==1){
 		codigo_inicio = 0;
 		origen=strtol((yyvsp[0].str)+1, NULL,16);
 	}}
-#line 1819 "assemble.tab.c"
+#line 2018 "assemble.tab.c"
     break;
 
   case 31: /* reservas: '.' ORIG error  */
-#line 601 "assemble.y"
+#line 800 "assemble.y"
                                     {if(pre==1){
         	errores= 311;
 		}
 		}
-#line 1828 "assemble.tab.c"
+#line 2027 "assemble.tab.c"
     break;
 
   case 32: /* reservas: '.' END  */
-#line 605 "assemble.y"
+#line 804 "assemble.y"
                                         {if(pre==1){
 		fin= 7; //tengo tiempo, para saber
 		memoria[pc].tipo = CELDA_FIN;
@@ -1943,27 +2036,27 @@ yyreduce:
 			errores = 1;
 	}
 	}
-#line 1841 "assemble.tab.c"
+#line 2040 "assemble.tab.c"
     break;
 
   case 33: /* reservas: ETIQUETA '.' FILL datoFill  */
-#line 613 "assemble.y"
+#line 812 "assemble.y"
                                             {if(pre==1){
 		registrar_etiqueta((yyvsp[-3].str), pc);
 	}}
-#line 1849 "assemble.tab.c"
+#line 2048 "assemble.tab.c"
     break;
 
   case 34: /* reservas: ETIQUETA '.' BLKW  */
-#line 616 "assemble.y"
+#line 815 "assemble.y"
                                                  {if(pre==1){
 		registrar_etiqueta((yyvsp[-2].str), pc);
 	}}
-#line 1857 "assemble.tab.c"
+#line 2056 "assemble.tab.c"
     break;
 
   case 35: /* datoFill: NUMERO  */
-#line 620 "assemble.y"
+#line 819 "assemble.y"
                {
 		if(pre==1) {
 			datardo = atoi((yyvsp[0].str)+1);
@@ -1972,19 +2065,19 @@ yyreduce:
 			}
 		}
 	}
-#line 1870 "assemble.tab.c"
+#line 2069 "assemble.tab.c"
     break;
 
   case 36: /* datoFill: ERROR_NUMERO  */
-#line 628 "assemble.y"
+#line 827 "assemble.y"
                        {
 		errores = 312;
 	}
-#line 1878 "assemble.tab.c"
+#line 2077 "assemble.tab.c"
     break;
 
   case 37: /* dato: NUMERO  */
-#line 633 "assemble.y"
+#line 832 "assemble.y"
                {
         if(pre==0) {
             A = atoi((yyvsp[0].str)+1);
@@ -1996,19 +2089,19 @@ yyreduce:
             }
         }
     }
-#line 1894 "assemble.tab.c"
+#line 2093 "assemble.tab.c"
     break;
 
   case 38: /* dato: ERROR_NUMERO  */
-#line 644 "assemble.y"
+#line 843 "assemble.y"
                    {
         	errores= 312;
     }
-#line 1902 "assemble.tab.c"
+#line 2101 "assemble.tab.c"
     break;
 
   case 39: /* datoBR: NUMERO  */
-#line 649 "assemble.y"
+#line 848 "assemble.y"
                {
         if(pre==0) {
             A = atoi((yyvsp[0].str)+1);
@@ -2020,19 +2113,19 @@ yyreduce:
             }
         }
     }
-#line 1918 "assemble.tab.c"
+#line 2117 "assemble.tab.c"
     break;
 
   case 40: /* datoBR: ERROR_NUMERO  */
-#line 660 "assemble.y"
+#line 859 "assemble.y"
                    {
         	errores= 312;
     }
-#line 1926 "assemble.tab.c"
+#line 2125 "assemble.tab.c"
     break;
 
   case 41: /* direccion: HEXA  */
-#line 667 "assemble.y"
+#line 866 "assemble.y"
                                   {
 		if(pre==1){direccionador=strtol((yyvsp[0].str)+1, NULL,16);
 		if (direccionador>65536 || direccionador<0) { // agregue || direccionador<0
@@ -2042,11 +2135,11 @@ yyreduce:
 		if(pre==0){direccionador=strtol((yyvsp[0].str)+1, NULL,16);}
 		
 	}
-#line 1940 "assemble.tab.c"
+#line 2139 "assemble.tab.c"
     break;
 
   case 42: /* direccion: ETIQUETA  */
-#line 676 "assemble.y"
+#line 875 "assemble.y"
                                        {
 		if(pre==0){
 			direccionador = buscarDireccionEtiqueta((yyvsp[0].str));
@@ -2056,11 +2149,11 @@ yyreduce:
 			}
 		}
 	}
-#line 1954 "assemble.tab.c"
+#line 2153 "assemble.tab.c"
     break;
 
   case 43: /* direccionBR: HEXA  */
-#line 687 "assemble.y"
+#line 886 "assemble.y"
                                   {
 		if(pre==1){direccionador=strtol((yyvsp[0].str)+1, NULL,16);
 		
@@ -2078,11 +2171,11 @@ yyreduce:
 		if(pre==0){direccionador=strtol((yyvsp[0].str)+1, NULL,16);}
 		
 	}
-#line 1976 "assemble.tab.c"
+#line 2175 "assemble.tab.c"
     break;
 
   case 44: /* direccionBR: ETIQUETA  */
-#line 704 "assemble.y"
+#line 903 "assemble.y"
                                        {
 		if(pre==0){
 			direccionador = buscarDireccionEtiqueta((yyvsp[0].str));
@@ -2092,11 +2185,11 @@ yyreduce:
 			}
 		}
 	}
-#line 1990 "assemble.tab.c"
+#line 2189 "assemble.tab.c"
     break;
 
 
-#line 1994 "assemble.tab.c"
+#line 2193 "assemble.tab.c"
 
       default: break;
     }
@@ -2289,7 +2382,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 713 "assemble.y"
+#line 912 "assemble.y"
 
 	
 	void yyerror(const char *msje) {

@@ -146,11 +146,14 @@ class Informacion:
 
     def cargar_imagen(self, nombre_base):
         # Se conservan las mismas rutas de imágenes de la pestaña original.
-        archivo = (
-            f"./img/{nombre_base}_O.png"
-            if self.mode == "dark"
-            else f"./img/{nombre_base}.png"
-        )
+        if nombre_base == "micro_esm_isa_es":
+            archivo = (
+                f"./img/{nombre_base}_O.png"
+                if self.mode == "dark"
+                else f"./img/{nombre_base}.png"
+            )
+        else:
+            archivo = f"./img/{nombre_base}.png"
         try:
             return tk.PhotoImage(file=archivo)
         except (FileNotFoundError, OSError, tk.TclError) as e:
@@ -160,23 +163,103 @@ class Informacion:
     def _cargar_imagenes(self):
         self.img_encabezado = self.cargar_imagen("encabezado_fio")
         self.img_logo = self.cargar_imagen("logo_esm")
-        self.img_micro = self.cargar_imagen("micro_esm_es")
-        self.img_isa = self.cargar_imagen("isa_esm")
+        self.img_micro = self.cargar_imagen("micro_esm_isa_es")
 
     def _agregar(self, texto, etiqueta="texto"):
         self.contenido.insert(tk.END, texto, etiqueta)
 
-    def _agregar_imagen(self, imagen):
+    def _agregar_imagen(
+        self,
+        imagen,
+        justificado="center",
+        ancho=None,
+        alto=None,
+        unidad="px",
+        alineacion="baseline",
+        mantener_proporcion=True
+    ):
         if imagen is None:
             return
 
+        # ---------------------------------------------------------
+        # Tamaño original
+        # ---------------------------------------------------------
+        ancho_original = imagen.width()
+        alto_original = imagen.height()
+
+        # ---------------------------------------------------------
+        # Calcular tamaño
+        # ---------------------------------------------------------
+        if unidad == "%":
+            # Obtener el ancho disponible del Text
+            ancho_disponible = self.contenido.winfo_width()
+
+            # Si todavía no fue dibujado, usar reqwidth
+            if ancho_disponible <= 1:
+                ancho_disponible = self.contenido.winfo_reqwidth()
+
+            # El porcentaje se aplica al ancho disponible
+            if ancho is not None:
+                ancho = int(ancho_disponible * ancho / 100)
+
+            if alto is not None:
+                alto = int(alto_original * alto / 100)
+
+        elif unidad != "px":
+            raise ValueError("La unidad debe ser 'px' o '%'")
+
+        # ---------------------------------------------------------
+        # Si no se especificó ancho, conservar el original
+        # ---------------------------------------------------------
+        if ancho is None:
+            ancho = ancho_original
+
+        # ---------------------------------------------------------
+        # Mantener relación de aspecto
+        # ---------------------------------------------------------
+        if mantener_proporcion:
+
+            # El ancho es el tamaño principal.
+            # El alto se calcula automáticamente.
+            alto = int(alto_original * (ancho / ancho_original))
+
+        else:
+            # Si no se mantiene la proporción, usamos el alto indicado.
+            if alto is None:
+                alto = alto_original
+
+        # ---------------------------------------------------------
+        # Redimensionar imagen
+        # ---------------------------------------------------------
+        if ancho != ancho_original or alto != alto_original:
+            imagen = imagen.resize((ancho, alto), Image.Resampling.LANCZOS)
+
+        # ---------------------------------------------------------
+        # Insertar imagen
+        # ---------------------------------------------------------
         inicio = self.contenido.index(tk.END)
 
-        self.contenido.image_create(tk.END, image=imagen)
+        self.contenido.image_create(
+            tk.END,
+            image=imagen,
+            align=alineacion
+        )
+
         self.contenido.insert(tk.END, "\n")
 
-        self.contenido.tag_add("imagen", inicio, tk.END)
-        self.contenido.tag_configure("imagen", justify=tk.CENTER)
+        # ---------------------------------------------------------
+        # Justificación horizontal
+        # ---------------------------------------------------------
+        self.contenido.tag_add(
+            "imagen",
+            inicio,
+            tk.END
+        )
+
+        self.contenido.tag_configure(
+            "imagen",
+            justify=justificado
+        )
 
     def _agregar_enlace(self, texto):
         self.contenido.insert(tk.END, texto, "link")
@@ -204,7 +287,7 @@ class Informacion:
         self.contenido.yview_moveto(0)
 
     def _contenido_espanol(self):
-        self._agregar_imagen(self.img_encabezado)
+        self._agregar_imagen(self.img_encabezado, justificado="center", ancho=100, unidad="%", mantener_proporcion=True)
         self._agregar("ESM Simulator v20\n", "seccion")
         self._agregar(
             "ESM Simulator es una herramienta educativa de código abierto "
@@ -215,9 +298,9 @@ class Informacion:
             "interactivo para desarrollar, probar y traducir código assembly.\n",
             "intro",
         )
-        self._agregar_imagen(self.img_logo)
+        self._agregar_imagen(self.img_logo, justificado="center", ancho=100, unidad="%", mantener_proporcion=True)
 
-        self._agregar("1. Propósito académico\n", "seccion")
+        self._agregar("Propósito académico\n", "seccion")
         self._agregar(
             "El simulador fue diseñado para el ámbito académico de la Carrera "
             "de Ingeniería en Computación de la FIO-UNaM. Contribuye al desarrollo "
@@ -225,7 +308,7 @@ class Informacion:
             "bajo nivel y comprensión de sistemas computacionales.\n"
         )
 
-        self._agregar("2. Microarquitectura e ISA ESMx16\n", "seccion")
+        self._agregar("Microarquitectura e ISA ESMx16\n", "seccion")
         self._agregar(
             "La microarquitectura ESMx16 y su ISA fueron desarrolladas por la "
             "cátedra de Fundamentos de Informática de la Facultad de Ingeniería "
@@ -234,10 +317,9 @@ class Informacion:
             "para comprender progresivamente la arquitectura de computadoras y "
             "la programación en ensamblador.\n"
         )
-        self._agregar_imagen(self.img_micro)
-        self._agregar_imagen(self.img_isa)
+        self._agregar_imagen(self.img_micro, justificado="center", ancho=1000, unidad="px", mantener_proporcion=True)
 
-        self._agregar("3. Equipo de desarrollo\n", "seccion")
+        self._agregar("Equipo de desarrollo\n", "seccion")
         self._agregar(
             "CRUZ, Thiago Agustín\n"
             "cruzthiagoagustin664@gmail.com\n\n"
@@ -253,14 +335,14 @@ class Informacion:
             "nota",
         )
 
-        self._agregar("4. Más información\n", "seccion")
+        self._agregar("Más información\n", "seccion")
         self._agregar_enlace(
             "Proyecto UMUx16\n"
             "https://drive.google.com/file/d/13sWqnlIF54dDIfUC_e0PlW9IuXdmEMA-/view?usp=sharing\n"
         )
 
     def _contenido_ingles(self):
-        self._agregar_imagen(self.img_encabezado)
+        self._agregar_imagen(self.img_encabezado, justificado="center", ancho=100, unidad="%", mantener_proporcion=True)
         self._agregar("ESM Simulator v20\n", "seccion")
         self._agregar(
             "ESM Simulator is an open-source educational tool developed in "
@@ -271,16 +353,16 @@ class Informacion:
             "assembly code.\n",
             "intro",
         )
-        self._agregar_imagen(self.img_logo)
+        self._agregar_imagen(self.img_logo, justificado="center", ancho=100, unidad="%", mantener_proporcion=True)
 
-        self._agregar("1. Academic purpose\n", "seccion")
+        self._agregar("Academic purpose\n", "seccion")
         self._agregar(
             "The simulator was designed for academic use in the Computer Engineering "
             "program at FIO-UNaM. It supports the development of skills in computer "
             "architecture, low-level programming and computational systems.\n"
         )
 
-        self._agregar("2. ESMx16 microarchitecture and ISA\n", "seccion")
+        self._agregar("ESMx16 microarchitecture and ISA\n", "seccion")
         self._agregar(
             "The ESMx16 microarchitecture and ISA were developed by the Fundamentals "
             "of Informatics department at the Faculty of Engineering in Oberá "
@@ -288,10 +370,9 @@ class Informacion:
             "not intended to replace LC-3, but to provide an introductory step for "
             "understanding computer architecture and assembly programming.\n"
         )
-        self._agregar_imagen(self.img_micro)
-        self._agregar_imagen(self.img_isa)
+        self._agregar_imagen(self.img_micro, justificado="center", ancho=1000, unidad="px", mantener_proporcion=True)
 
-        self._agregar("3. Development team\n", "seccion")
+        self._agregar("Development team\n", "seccion")
         self._agregar(
             "CRUZ, Thiago Agustín\n"
             "cruzthiagoagustin664@gmail.com\n\n"
@@ -307,7 +388,7 @@ class Informacion:
             "nota",
         )
 
-        self._agregar("4. More information\n", "seccion")
+        self._agregar("More information\n", "seccion")
         self._agregar_enlace(
             "https://drive.google.com/file/d/13sWqnlIF54dDIfUC_e0PlW9IuXdmEMA-/view?usp=sharing\n"
         )

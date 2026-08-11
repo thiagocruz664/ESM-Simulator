@@ -1,9 +1,10 @@
-¿Es administrador?: No
+Â¿Es administrador?: No
 Usuario actual: cruzt
-¿Puede escribir en C:\Users\cruzt\AppData\Local\Temp?: Sí
+Â¿Puede escribir en C:\Users\cruzt\AppData\Local\Temp?: SÃ­
 Directorio actual: c:\Users\cruzt\Desktop\Facultad\Investigacion y Proyectos\ESM-Simulator
-¿Puede escribir en directorio actual?: Sí
+Â¿Puede escribir en directorio actual?: SÃ­
 Ejecutable de Python: C:\Users\cruzt\AppData\Local\Python\pythoncore-3.14-64\python.exe
 Bibliotecas cargadas correctamente.
-Error (line 143): No section: 'Settings'
+Error al guardar la configuracion: No section: 'Settings'
 Zoom ajustado a: 100%
+Error al abrir Informacion: 'PhotoImage' object has no attribute 'resize'

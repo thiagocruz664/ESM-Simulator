@@ -94,9 +94,25 @@ minusculas  [a-z]
      * del TRAP, el lexer devuelve primero TRAP y reinyecta x25 para que el
      * parser reciba exactamente la misma secuencia de tokens que si el
      * usuario hubiese escrito "TRAP x25".
+     * Misma filosofia se sigue para IN y OUT, que son alias de TRAP x23 y 
+     * TRAP x21 respectivamente.
      */
     if (strcmp(yytext, "HALT") == 0) {
         unput('5');
+        unput('2');
+        unput('x');
+        unput(' ');
+        return TRAP;
+    }
+    if (strcmp(yytext, "IN") == 0) {
+        unput('3');
+        unput('2');
+        unput('x');
+        unput(' ');
+        return TRAP;
+    }
+    if (strcmp(yytext, "OUT") == 0) {
+        unput('1');
         unput('2');
         unput('x');
         unput(' ');

@@ -48,16 +48,6 @@ from GUI_info import Informacion
 from GUI_salidaEstado import Consola, Variables
 
 version = 20.0
-
-# Constantes de la arquitectura ESMx16 y de la traduccion de instrucciones.
-TAMANO_MEMORIA = 1 << 16
-MASCARA_PALABRA = TAMANO_MEMORIA - 1
-DIRECCION_CARGA_BINARIA = 0x3000
-MODO_ENSAMBLAR = "ensamblar"
-MODO_DESENSAMBLAR = "desensamblar"
-PREFIJO_FILL_INTERNO = "ETIQUETAINTERNAFILL"
-MAX_ITERACIONES_BRANCH = 200
-
 """
 Change log:
     +   Se reestructuro y documento todo el código yacc del programa
@@ -68,6 +58,8 @@ Change log:
     +   Se documento todo el codigo GUI_barraMenu.py
     
     +   Se documento todo el codigo GUI_entradaMemoria.py
+    
+    +   Se documento todo el codigo GUI_salidaEstado.py
 
     +   Se unificaron traductor_para_st y el traductor Brianesco en la funcion
         traducir_instruccion(), utilizada para ensamblar y desensamblar.
@@ -77,8 +69,20 @@ Change log:
     +   Se implemento HALT como alias exacto de TRAP x25 en el traductor,
         el ensamblado, el desensamblado y la ejecucion.
 
-    +   Se soluciono un problema con lineas erroneas no interpretadas como tal, cargando un valor 0 en la memoria.
+    +   Se soluciono un problema con lineas erroneas no interpretadas como tal, 
+        cargando un valor 0 en la memoria.
+        
+    +   Se creo una nueva pestaña de ayuda con la documentacion de las 
+        instrucciones y ejemplos de codigos de la ESM,
 """
+# Constantes de la arquitectura ESMx16 y de la traduccion de instrucciones.
+TAMANO_MEMORIA = 1 << 16
+MASCARA_PALABRA = TAMANO_MEMORIA - 1
+DIRECCION_CARGA_BINARIA = 0x3000
+MODO_ENSAMBLAR = "ensamblar"
+MODO_DESENSAMBLAR = "desensamblar"
+PREFIJO_FILL_INTERNO = "ETIQUETAINTERNAFILL"
+MAX_ITERACIONES_BRANCH = 200
 
 # Estado compartido por los callbacks de Tkinter y la biblioteca nativa.
 primer_inicio = True
@@ -1142,9 +1146,9 @@ def traducir_instruccion(
         if opcode == "1110":
             vector_trap = int(binario[3:], 2)
             return {
-                0x21: "TRAP x21",
-                0x23: "TRAP x23",
-                0x25: "HALT",
+                0x21: "TRAP x21" or "OUT",
+                0x23: "TRAP x23" or "IN",
+                0x25: "TRAP x25" or "HALT",
             }.get(vector_trap)
         return None
 

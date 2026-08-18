@@ -2033,9 +2033,9 @@ def about() -> None:
     """
     try:
         about_window = Informacion(ventana,lang,current_theme)
-        about_window.tema()
         about_window.limpiar()
         about_window.lenguaje()
+        about_window.tema()
     except Exception as ex:
         log(f"Error al abrir Informacion: {ex}")
 

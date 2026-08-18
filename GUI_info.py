@@ -57,7 +57,10 @@ class Informacion:
         self.logo = tk.Label(self.frame_info, image=self.img_logo)
         self.logo.grid(row=2, column=2, sticky="ew")
 
-        self.img_micro = self.cargar_imagen("micro_esm_es")
+        if self.lang == "es":
+            self.img_micro = self.cargar_imagen("micro_esm_es")
+        else:
+            self.img_micro = self.cargar_imagen("micro_esm_en")
         self.micro = tk.Label(self.frame_info, image=self.img_micro)
         self.micro.grid(row=3, column=0, columnspan=2, sticky="ew")
         self.img_isa = self.cargar_imagen("isa_esm")
@@ -93,7 +96,7 @@ class Informacion:
         self.frame_info.grid_columnconfigure(1, weight=1)
         self.frame_info.grid_columnconfigure(2, weight=1)
 
-    def on_frame_configure(self, event):
+    def on_frame_configure(self, _event):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         self.canvas.create_window(((self.ventana_tam/2)-15, 0), window=self.frame_info, anchor="n")
     def _on_mousewheel(self, event):
@@ -115,7 +118,10 @@ class Informacion:
         self.encabezado.config(image=self.img_encabezado)
         self.img_logo = self.cargar_imagen("logo_esm")
         self.logo.config(image=self.img_logo)
-        self.img_micro = self.cargar_imagen("micro_esm_es")
+        if self.lang == "es":
+            self.img_micro = self.cargar_imagen("micro_esm_es")
+        else:
+            self.img_micro = self.cargar_imagen("micro_esm_en")
         self.micro.config(image=self.img_micro)
         self.img_isa = self.cargar_imagen("isa_esm")
         self.isa.config(image=self.img_isa)
@@ -124,7 +130,7 @@ class Informacion:
             bg_color = "white"
             text_color = "black"
         else:
-            bg_color = "black"
+            bg_color = "#1E1E1E"
             text_color = "white"
 
         self.canvas.config(bg=bg_color)
@@ -179,6 +185,10 @@ class Informacion:
             self.parrafo1.tag_configure("n5", font=("Times New Roman", 14, "bold"))
             self.parrafo1.config(state=tk.DISABLED)
 
+            self.img_micro = self.cargar_imagen("micro_esm_es")
+            self.micro = tk.Label(self.frame_info, image=self.img_micro)
+            self.micro.grid(row=3, column=0, columnspan=2, sticky="ew")
+
             self.creditos.insert(tk.END, "Equipo de Desarrollo:\n"
                                         "       CRUZ, Thiago Agustín\n"
                                         "   cruzthiagoagustin664@gmail.com\n\n"
@@ -224,12 +234,14 @@ class Informacion:
             self.parrafo2.tag_configure("info", font=("Times New Roman", 14, "bold"))
             self.parrafo2.tag_add("link", "9.0", tk.END)
             self.parrafo2.tag_configure("link", font=("Times New Roman", 12, "underline"))
-            self.parrafo2.tag_bind("link","<Button 1>",)
+            self.parrafo2.tag_bind("link","<Button 1>",self.open_pdf)
             self.parrafo2.config(state=tk.DISABLED)
 
             self.boton_cerrar.config(text="Cerrar")
             self.boton_licencia.config(text="Licencia")
             self.boton_idioma.config(text="Idioma")
+            
+            self.tema()
         else:
             self.parrafo1.insert(tk.END, "ESM Simulator is an open-source educational tool developed in Python, Yacc, and \n"
                                         "Lex, based on the Instruction Set Architecture (ISA) of the Educational Simplified \n"
@@ -251,6 +263,10 @@ class Informacion:
             self.parrafo1.tag_add("n5", "6.65", "7.31")
             self.parrafo1.tag_configure("n5", font=("Times New Roman", 14, "bold"))
             self.parrafo1.config(state=tk.DISABLED)
+
+            self.img_micro = self.cargar_imagen("micro_esm_en")
+            self.micro = tk.Label(self.frame_info, image=self.img_micro)
+            self.micro.grid(row=3, column=0, columnspan=2, sticky="ew")
 
             self.creditos.insert(tk.END, "Development Team:\n"
                                         "       CRUZ, Thiago Agustín\n"
@@ -303,8 +319,10 @@ class Informacion:
             self.boton_cerrar.config(text="Close")
             self.boton_licencia.config(text="License")
             self.boton_idioma.config(text="Language")
+            
+            self.tema()
 
-    def open_pdf(self,event):
+    def open_pdf(self, _event):
         webbrowser.open("https://drive.google.com/file/d/13sWqnlIF54dDIfUC_e0PlW9IuXdmEMA-/view?usp=sharing")
     def licencia(self):
         webbrowser.open("https://www.gnu.org/licenses/gpl-3.0.html")

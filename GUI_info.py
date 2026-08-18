@@ -44,7 +44,7 @@ class Informacion:
         self.img_encabezado = self.cargar_imagen("encabezado_fio")
         self.encabezado = tk.Label(self.frame_info, image=self.img_encabezado)
         self.encabezado.grid(row=0, column=0, columnspan=3, sticky="ew")
-        self.titulo = tk.Label(self.frame_info, text="ESM Simulator v19", font=("Times New Roman", 24), justify="center")
+        self.titulo = tk.Label(self.frame_info, text="ESM Simulator v20", font=("Times New Roman", 24), justify="center")
         self.titulo.grid(row=1, column=0, columnspan=3, sticky="ew")
 
         self.parrafo1 = tk.Text(self.frame_info, font=("Times New Roman", 14), wrap="word", height=10, width=50, borderwidth=0, relief="flat", highlightthickness=0)

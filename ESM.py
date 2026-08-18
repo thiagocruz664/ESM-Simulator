@@ -73,7 +73,10 @@ Change log:
         cargando un valor 0 en la memoria.
         
     +   Se creo una nueva pestaña de ayuda con la documentacion de las 
-        instrucciones y ejemplos de codigos de la ESM,
+        instrucciones y ejemplos de codigos de la ESM.
+        
+    +   Se corriegieron errores conceptuales de la pestaña de informacion y
+        se mejoro el diseño de la misma
 """
 # Constantes de la arquitectura ESMx16 y de la traduccion de instrucciones.
 TAMANO_MEMORIA = 1 << 16

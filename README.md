@@ -1,6 +1,23 @@
 # ESM-Simulator
 ESM Simulator es una herramienta educativa de código abierto desarrollada en Python, Yacc y Lex, basada en la arquitectura de conjunto de instrucciones (ISA) de la Educational Stack Machine x16 (ESMx16). Su propósito principal es facilitar el aprendizaje y la enseñanza de la programación en lenguaje ensamblador, proporcionando un entorno interactivo e intuitivo para el desarrollo, prueba y traducción de código assembly. Este simulador ha sido diseñado específicamente para su uso en el ámbito académico de la Carrera de Ingeniería en Computación de la FIO-UNaM, contribuyendo al desarrollo de competencias en arquitectura de computadoras y programación de bajo nivel.
-     ![image](https://github.com/user-attachments/assets/b82288c3-e78b-4e84-925b-435cb3042dfa)
+<table>
+  <tr>
+    <td>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="./img/micro_esm_en_O.png">
+        <source media="(prefers-color-scheme: light)" srcset="./img/micro_esm_en.png">
+        <img src="./img/micro_esm_en.png" alt="ESM-Simulator">
+      </picture>
+    </td>
+    <td>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="./img/isa_esm_O.png">
+        <source media="(prefers-color-scheme: light)" srcset="./img/isa_esm.png">
+        <img src="./img/isa_esm.png" alt="ESM-Simulator">
+      </picture>
+    </td>
+  </tr>
+</table>
 La microarquitectura ESMx16 y su correspondiente ISA fueron desarrolladas por la cátedra de Fundamentos de Informática de la Facultad de Ingeniería de Oberá (FIO-UNaM) como una alternativa simplificada a la LC-3 de Yale Patt. Su propósito no es reemplazar a la LC-3, sino servir como un primer escalón en el proceso de enseñanza, facilitando la comprensión progresiva de los conceptos fundamentales de arquitectura de computadoras y programación en ensamblador. 
 
 Mas información: 

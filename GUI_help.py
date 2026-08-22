@@ -138,12 +138,6 @@ class Ayuda:
         self.contenido.yview_moveto(0)
 
     def _contenido_espanol(self):
-        self._agregar(
-            "Esta guía resume el uso del simulador y la sintaxis aceptada por "
-            "la ISA ESMx16. Los dos programas principales están adaptados de "
-            "los ejemplos del paper Proyecto UMUx16.\n",
-            "intro",
-        )
 
         self._agregar("Flujo de trabajo\n", "seccion")
         self._agregar(
@@ -274,12 +268,6 @@ class Ayuda:
         )
 
     def _contenido_ingles(self):
-        self._agregar(
-            "This guide summarizes simulator usage and the syntax accepted by "
-            "the ESMx16 ISA. The two main programs are adapted from the examples "
-            "in the Proyecto UMUx16 paper.\n",
-            "intro",
-        )
 
         self._agregar("Workflow\n", "seccion")
         self._agregar(

@@ -69,6 +69,9 @@ Change log:
     +   Se implemento HALT como alias exacto de TRAP x25 en el traductor,
         el ensamblado, el desensamblado y la ejecucion.
 
+    +   Se implementaron IN y OUT como alias exactos de TRAP x23 y TRAP x21
+        en el ensamblado, el desensamblado y la exportacion BIN/HEX.
+
     +   Se soluciono un problema con lineas erroneas no interpretadas como tal, 
         cargando un valor 0 en la memoria.
         
@@ -86,6 +89,13 @@ MODO_ENSAMBLAR = "ensamblar"
 MODO_DESENSAMBLAR = "desensamblar"
 PREFIJO_FILL_INTERNO = "ETIQUETAINTERNAFILL"
 MAX_ITERACIONES_BRANCH = 200
+
+# Alias de las rutinas del monitor ESM. Esta tabla centralizada mantiene
+# sincronizadas la sintaxis assembler y la representacion binaria de TRAP.
+ALIAS_TRAP_A_VECTOR = {"OUT": 0x21, "IN": 0x23, "HALT": 0x25}
+VECTOR_TRAP_A_ALIAS = {
+    vector: alias for alias, vector in ALIAS_TRAP_A_VECTOR.items()
+}
 
 # Estado compartido por los callbacks de Tkinter y la biblioteca nativa.
 primer_inicio = True
@@ -435,7 +445,8 @@ def encontrar_etiqueta_no_definida(lineas) -> str | None:
         str | None: Primera etiqueta no definida o None si todas existen.
     """
     operaciones = {
-        "ADD", "AND", "NOTA", "NOTB", "LD", "ST", "TRAP", "HALT"
+        "ADD", "AND", "NOTA", "NOTB", "LD", "ST", "TRAP", "IN", "OUT",
+        "HALT"
     }
     directivas = {".ORIG", ".END", ".FILL", ".BLKW"}
     etiquetas = set()
@@ -766,7 +777,8 @@ def es_operacion_o_directiva(token: str) -> bool:
         bool: True si el token es una operacion o una directiva conocida.
     """
     operaciones = {
-        "ADD", "AND", "NOTA", "NOTB", "LD", "ST", "TRAP", "HALT"
+        "ADD", "AND", "NOTA", "NOTB", "LD", "ST", "TRAP", "IN", "OUT",
+        "HALT"
     }
     directivas = {".ORIG", ".END", ".FILL", ".BLKW"}
     return token in operaciones or token in directivas or token.startswith("BR")
@@ -1148,11 +1160,7 @@ def traducir_instruccion(
             return f"BR {flags} x{destino:04x}"
         if opcode == "1110":
             vector_trap = int(binario[3:], 2)
-            return {
-                0x21: "TRAP x21" or "OUT",
-                0x23: "TRAP x23" or "IN",
-                0x25: "TRAP x25" or "HALT",
-            }.get(vector_trap)
+            return VECTOR_TRAP_A_ALIAS.get(vector_trap)
         return None
 
     if modo != MODO_ENSAMBLAR:
@@ -1202,9 +1210,10 @@ def traducir_instruccion(
     if instruccion == "NOTB":
         return "0101000000000000"
 
-    if instruccion == "HALT":
-        # HALT no posee una codificacion propia: es el alias de TRAP x25.
-        return "1110000000100101"
+    if instruccion in ALIAS_TRAP_A_VECTOR:
+        # IN, OUT y HALT son nombres legibles de sus respectivos TRAP.
+        vector_trap = ALIAS_TRAP_A_VECTOR[instruccion]
+        return "111" + format(vector_trap, "013b")
 
     if instruccion == "BR":
         if not flags:
@@ -1245,11 +1254,15 @@ def traducir_instruccion(
         return "0000000000000000"
 
     if instruccion == "TRAP":
-        return {
-            "x21": "1110000000100001",
-            "x23": "1110000000100011",
-            "x25": "1110000000100101",
-        }.get(tokens[1], 310)
+        vectores_validos = {
+            "x21": ALIAS_TRAP_A_VECTOR["OUT"],
+            "x23": ALIAS_TRAP_A_VECTOR["IN"],
+            "x25": ALIAS_TRAP_A_VECTOR["HALT"],
+        }
+        vector_trap = vectores_validos.get(tokens[1])
+        if vector_trap is None:
+            return 310
+        return "111" + format(vector_trap, "013b")
 
     # Una sentencia assembler desconocida nunca debe convertirse
     # silenciosamente en una palabra cero: debe detener el ensamblado.
